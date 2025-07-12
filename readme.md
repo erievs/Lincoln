@@ -8,19 +8,19 @@ Free the tubes!
 
 - [*] Search: Working
 
-- [X] Standard Feeds: Not Started
+- [O] Standard Feeds: Not Started
 
-- [X] User Info: Not started
+- [O] User Info: Not started
 
 - [^] Get Video: Working, however no audio
 
-- [X] Client Login: Not Started
+- [O] Client Login: Not Started
 
-- [X] IOS v1.xx Login: Not Started
+- [O] IOS v1.xx Login: Not Started
  
-- [X] Default Feeds: Not started
+- [O] Default Feeds: Not started
 
-- [X] Ratings: Not Started
+- [O] Ratings: Not Started
  
 ## Progress Atlas
 
@@ -30,7 +30,7 @@ Free the tubes!
 
 - [?] Means it has been implemented to some degree, however haseb't been tested.
 
-- [X] Means no work has been started.
+- [O] Means no work has been started.
 
 - [C] Means end point is cancelled.
 
