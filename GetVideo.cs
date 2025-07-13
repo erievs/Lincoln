@@ -58,10 +58,10 @@ namespace Lincon
                         protocol.GetString()?.Contains("m3u8") == true &&
                         f.TryGetProperty("ext", out var ext) &&
                         ext.GetString()?.Equals("mp4", StringComparison.OrdinalIgnoreCase) == true &&
-                        f.TryGetProperty("format_id", out var formatId) &&
-                        formatId.GetString()?.StartsWith("6") == true
+                        f.TryGetProperty("vcodec", out var vCodec) &&
+                        vCodec.GetString()?.StartsWith("avc1") == true
                     )
-                    .Select(f => f.GetProperty("url").GetString())
+                    .Select(f => f.GetProperty("manifest_url").GetString())
                     .Where(url => !string.IsNullOrWhiteSpace(url))
                     .Distinct()
                     .ToList();
@@ -83,11 +83,11 @@ namespace Lincon
                         f.TryGetProperty("protocol", out var protocol) &&
                         protocol.GetString()?.Contains("m3u8") == true &&
                         f.TryGetProperty("ext", out var ext) &&
-                        ext.GetString()?.Equals("m4a", StringComparison.OrdinalIgnoreCase) == true &&
-                        f.TryGetProperty("format_id", out var formatId) &&
-                        formatId.GetString()?.StartsWith("") == true
+                        ext.GetString()?.Equals("mp4", StringComparison.OrdinalIgnoreCase) == true &&
+                        f.TryGetProperty("vcodec", out var vCodec) &&
+                        vCodec.GetString()?.StartsWith("none") == true
                     )
-                    .Select(f => f.GetProperty("url").GetString())
+                    .Select(f => f.GetProperty("manifest_url").GetString())
                     .Where(url => !string.IsNullOrWhiteSpace(url))
                     .Distinct()
                     .ToList();
@@ -95,9 +95,9 @@ namespace Lincon
 
                 if (audio.Count > 0) {
                     var audio_content = await client.GetStringAsync(audio.First());
-                    var audio_url = video_content.Split('\n');
+                    var audio_url = audio_content.Split('\n');
 
-                    Console.WriteLine("\nAudio track " + video.First());
+                    Console.WriteLine("\nAudio track " + audio.First());
 
                     combined.AddRange(audio_url);
                 } else {
@@ -106,6 +106,7 @@ namespace Lincon
 
                 return string.Join("\n", combined);
             }
+
 
             app.MapPost("/getURL", async (HttpContext ctx, HttpRequest req) =>
             {

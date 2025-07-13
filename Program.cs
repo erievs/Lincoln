@@ -59,8 +59,7 @@ app.UseSwaggerUi(config =>
 
 // download/update yt-dlp
 
-await YoutubeDLSharp.Utils.DownloadYtDlp();
-await YoutubeDLSharp.Utils.DownloadFFmpeg();
+await YoutubeDLSharp.Utils.DownloadBinaries();
 
 Console.WriteLine("Welcome to Lincoln!");
 
@@ -76,6 +75,9 @@ DeviceRegistration.HandleDevices(app);
 
 // search
 SearchFeed.HandleFeed(app);
+
+// comments
+CommentFeed.HandleFeed(app);
 
 // video file/video playback
 GetVideo.HandleVideos(app);

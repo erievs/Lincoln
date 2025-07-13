@@ -10,9 +10,11 @@ Free the tubes!
 
 - [O] Standard Feeds: Not Started
 
+- [*] Comments: Started
+
 - [O] User Info: Not started
 
-- [^] Get Video: Working, however no audio
+- [?] Get Video: Started 
 
 - [O] Client Login: Not Started
 
@@ -28,9 +30,9 @@ Free the tubes!
 
 - [^] Means working to some degree, however is lacking in some very important way.
 
-- [?] Means it has been implemented to some degree, however haseb't been tested.
+- [?] Means it has been implemented to some degree, however hasen't been tested.
 
-- [O] Means no work has been started.
+- [O] Means the end point does not work, or is not started.
 
 - [C] Means end point is cancelled.
 
@@ -59,7 +61,7 @@ roughly 2008 through 2013/2014.
 
 # Setup
 
-[* THIS IS VERY EARLY DEVELOPMENT, YOU HAVE BEEN WARNED *]
+[**THIS IS VERY EARLY DEVELOPMENT, YOU HAVE BEEN WARNED**]
 
 - Step 1 `git clone https://github.com/erievs/Lincoln`
 

@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using Namotion.Reflection;
 using YoutubeDLSharp;
+using YoutubeDLSharp.Options;
+
 
 namespace Lincon
 {
@@ -20,11 +22,20 @@ namespace Lincon
             Dictionary<string, string> videoDict = [];
 
             
-            async Task<string> UseYTDlP(string url, params string[] args)
+            async Task<string> UseYTDlP(string query)
             {     
                 // WE WILL NEED MORE OPTIONS
                 // youtube:search: [youtube] YouTube search; "ytsearch:" prefix (e.g. "ytsearch:running tortoise")
-                var res = await ytdlp.RunVideoDataFetch(url);
+
+                var options = new OptionSet
+                {
+                    DumpSingleJson = true,
+                    SkipDownload = true,
+                    FlatPlaylist = true,
+                    WriteComments = true
+                };
+                
+                var res = await ytdlp.RunVideoDataFetch(query, overrideOptions: options);
 
                 Console.WriteLine("\nRes:\n" + res.Data);
                     
@@ -104,9 +115,9 @@ namespace Lincon
                         </entry>
                     ";
 
-                    var audio_url = item.Split(); // uh this converts it to what range wants jank I know.
+                    var video = item.Split(); // uh this converts it to what range wants jank I know.
 
-                    combined.AddRange(audio_url);
+                    combined.AddRange(video);
 
                 }
 
@@ -114,7 +125,7 @@ namespace Lincon
                 return (string.Join("\n", combined), videos.EnumerateArray().Count());
             }
 
-            app.MapGet(@"/feeds/api/videos", async (HttpRequest request) => // needs to be ?q at some point for real hardware
+            app.MapGet(@"/feeds/api/videos/", async (HttpRequest request) => // needs to be ?q at some point for real hardware
             {
                 try
                 {
@@ -126,7 +137,7 @@ namespace Lincon
 
                 Console.WriteLine("\nQuery: " + query);
 
-                var json = await UseYTDlP("ytsearch20:" + query, "--dump-json", "--skip-download", "--flat-playlist");
+                var json = await UseYTDlP($"ytsearch20:{query}");
 
                 var data = await ExtractData(json, request);
 
