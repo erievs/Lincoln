@@ -15,7 +15,7 @@ namespace Lincon {
             {
                 var assets = $"http://{context.Request.Host}/cdn/web";        
 
-                return Results.Content(HTMLModal.Home(assets), "text/html");
+                return Results.Content(HTMLModal.Home(request, context), "text/html");
                                 
             });
 

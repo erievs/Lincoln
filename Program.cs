@@ -7,7 +7,10 @@ using Microsoft.AspNetCore.Http;
 using System.Text;
 using Lincon;
 
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddAntiforgery();
 
@@ -21,7 +24,7 @@ builder.Services.AddControllers()
 
 
 builder.Services.AddHttpLogging(logging =>
-{
+{   
     logging.LoggingFields = HttpLoggingFields.All;
     logging.RequestHeaders.Add("sec-ch-ua");
     logging.ResponseHeaders.Add("MyResponseHeader");
