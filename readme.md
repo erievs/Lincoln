@@ -74,6 +74,15 @@ if this stops receiving updates.
 - I'd suggest (for devs) using if you're using an android/ios or other not on computer device https://mitmproxy.org/
 as it lets you see missing requsts and such (hint: `mitmweb -p 8082 --listen-host 192.168.1.150`).
 
+- This supports muxed and HLS streams, right now there is not an option (easily) for users to switch between the muxed (itag 18),
+and HLS streams. However if you want to make your server use the muxed itag-18 format, use ?muxed=true in each feed that has a 
+`/getvideo/` request. Like `http://192.168.1.150/get_video/{video_id}?muxed=true". The muxed option will force 360p.
+
+- We offer two endpoints for getting videos, /getvideo/ and /get_video. They do the exact same thing however, /get_video/video_id=
+is the proper endpoint YouTube used back in the day, and not /getvideo/ (what TubeRepaier Python and JATB uses/used).
+
+- The HLS system is pretty simple, all it does it download the manifiest_url, and remove all lines that contain vp9 (may have to add av1 as well idk)!
+
 # Server Setup
 
 [**THIS IS VERY EARLY DEVELOPMENT, YOU HAVE BEEN WARNED**]

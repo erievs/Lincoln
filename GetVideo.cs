@@ -51,6 +51,8 @@ namespace Lincon
                 Console.WriteLine("(HLS) Response For Formats " + (formats));
 
                 // video (turns out you DO not need to combine em)
+                // also it doesn't really matter which one you grab this is just left over code
+                // all manifest_url seem to have the same stuff in em, but if it aint broke dont fix
                 var video = formats.EnumerateArray()
                     .Where(f =>
                         f.TryGetProperty("protocol", out var protocol) &&
@@ -80,7 +82,7 @@ namespace Lincon
                             var result = new List<string>();
                             for (int i = 0; i < lines.Count; i++)
                             {
-                                if (lines[i].Contains("vp09"))
+                                if (lines[i].Contains("vp09") || lines[i].Contains("av1"))
                                 {
                                     i++;
                                     continue;
@@ -180,7 +182,6 @@ namespace Lincon
 
                     var json = await UseYTDlP($"https://youtube.com/watch?v={videoId}", "--dump-json");
 
-
                     if (query == "true")
                     {
                         var video_url = await ExtractMuxedUrl(json);
@@ -201,6 +202,38 @@ namespace Lincon
                 }
             });
 
+
+            // this the 'real' endpoint YouTube used (good for flash and stuff)
+            app.MapGet("/get_video", async (HttpRequest request) =>
+            {
+                try
+                {
+
+                    string? video_id = System.Security.SecurityElement.Escape(request.Query["video_id"]);
+                    
+                    string? query = System.Security.SecurityElement.Escape(request.Query["muxed"]);
+
+                    var json = await UseYTDlP($"https://youtube.com/watch?v={video_id}", "--dump-json");
+
+                    if (query == "true")
+                    {
+                        var video_url = await ExtractMuxedUrl(json);
+                        return Results.Redirect(video_url);
+                    }
+
+                    var hls = await ExtractManifest(json);
+
+                    if (string.IsNullOrWhiteSpace(hls))
+                        return Results.NotFound("Couldn't find a HLS stream found");
+
+                    return Results.Text(hls, "application/vnd.apple.mpegurl");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex);
+                    return Results.StatusCode(500);
+                }
+            });
         }
 
 
