@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using YoutubeDLSharp;
+using System.Text.RegularExpressions;
 
 namespace Lincon
 {
@@ -26,7 +27,7 @@ namespace Lincon
             }
 
             async Task<string> UseYTDlP(string url, params string[] args)
-            {     
+            {
 
                 // todo -> potokens
                 var res = await ytdlp.RunVideoDataFetch(url);
@@ -41,17 +42,15 @@ namespace Lincon
             {
 
                 // god I have no idea how syncs work
-                
+
                 using var res = JsonDocument.Parse(data);
 
                 if (!res.RootElement.TryGetProperty("formats", out var formats))
                     return "";
-                
-                Console.WriteLine("Response For Formats " + (formats));
 
-                var combined = new List<string>();
+                Console.WriteLine("(HLS) Response For Formats " + (formats));
 
-                // video track
+                // video (turns out you DO not need to combine em)
                 var video = formats.EnumerateArray()
                     .Where(f =>
                         f.TryGetProperty("protocol", out var protocol) &&
@@ -71,42 +70,65 @@ namespace Lincon
                     return "";
 
                 var video_content = await client.GetStringAsync(video.First());
-                var video_url = video_content.Split('\n');
                 
-                Console.WriteLine("\nVideo track " + video.First());
+                video_content = string.Join("\n",
+                    video_content
+                        .Split('\n')
+                        .ToList()
+                        .Let(lines =>
+                        {
+                            var result = new List<string>();
+                            for (int i = 0; i < lines.Count; i++)
+                            {
+                                if (lines[i].Contains("vp09"))
+                                {
+                                    i++;
+                                    continue;
+                                }
 
-                combined.AddRange(video_url);
+                                result.Add(lines[i]);
+                            }
 
-                // audio track (doesnt work rn)
-                var audio = formats.EnumerateArray()
+                            return result;
+                        })
+                );
+
+
+                Console.WriteLine("\nUrl " + video.First());
+
+                return video_content;
+            }
+
+            async Task<string> ExtractMuxedUrl(string data)
+            {
+
+                // to shut up warning
+                await Task.Delay(0); // (GOD I HATE ASYNC)
+
+
+                // god I have no idea how syncs work
+                using var res = JsonDocument.Parse(data);
+
+                if (!res.RootElement.TryGetProperty("formats", out var formats))
+                    return "";
+
+                Console.WriteLine("(Muxed) Response For Formats " + (formats));
+
+                var video = formats.EnumerateArray()
                     .Where(f =>
-                        f.TryGetProperty("protocol", out var protocol) &&
-                        protocol.GetString()?.Contains("m3u8") == true &&
-                        f.TryGetProperty("ext", out var ext) &&
-                        ext.GetString()?.Equals("mp4", StringComparison.OrdinalIgnoreCase) == true &&
-                        f.TryGetProperty("vcodec", out var vCodec) &&
-                        vCodec.GetString()?.StartsWith("none") == true
+                        f.TryGetProperty("format_id", out var protocol) &&
+                        protocol.GetString()?.Contains("18") == true
                     )
-                    .Select(f => f.GetProperty("manifest_url").GetString())
+                    .Select(f => f.GetProperty("url").GetString())
                     .Where(url => !string.IsNullOrWhiteSpace(url))
                     .Distinct()
                     .ToList();
 
 
-                if (audio.Count > 0) {
-                    var audio_content = await client.GetStringAsync(audio.First());
-                    var audio_url = audio_content.Split('\n');
+                Console.WriteLine("\nVideo Url: " + video.First());
 
-                    Console.WriteLine("\nAudio track " + audio.First());
-
-                    combined.AddRange(audio_url);
-                } else {
-                    Console.WriteLine("\nWe're working on getting the audio track back! Sorry in the meantime!");
-                }
-
-                return string.Join("\n", combined);
+                return video.First();
             }
-
 
             app.MapPost("/getURL", async (HttpContext ctx, HttpRequest req) =>
             {
@@ -149,11 +171,22 @@ namespace Lincon
                 return Results.NotFound("Video not found");
             });
 
-            app.MapGet("/getvideo/{videoId}", async (string videoId) =>
+            app.MapGet("/getvideo/{videoId}", async (string videoId, HttpRequest request) =>
             {
                 try
                 {
+
+                    string? query = System.Security.SecurityElement.Escape(request.Query["muxed"]);
+
                     var json = await UseYTDlP($"https://youtube.com/watch?v={videoId}", "--dump-json");
+
+
+                    if (query == "true")
+                    {
+                        var video_url = await ExtractMuxedUrl(json);
+                        return Results.Redirect(video_url);
+                    }
+
                     var hls = await ExtractManifest(json);
 
                     if (string.IsNullOrWhiteSpace(hls))
@@ -171,6 +204,11 @@ namespace Lincon
         }
 
 
+    }
+
+    public static class Extensions
+    {
+        public static TResult Let<T, TResult>(this T input, Func<T, TResult> func) => func(input);
     }
 
 }

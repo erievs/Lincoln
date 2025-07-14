@@ -35,6 +35,7 @@ namespace Lincon
                     WriteComments = true
                 };
                 
+
                 var res = await ytdlp.RunVideoDataFetch(query, overrideOptions: options);
 
                 Console.WriteLine("\nRes:\n" + res.Data);
@@ -66,6 +67,7 @@ namespace Lincon
 
                 foreach(var result in videos.EnumerateArray()) {
                     
+                    // you must escape the feilds (I learbed that the hard way once)
                     var id = System.Security.SecurityElement.Escape(result.GetProperty("id").ToString());
                     var title = System.Security.SecurityElement.Escape(result.GetProperty("title").ToString());
                     var uploader = System.Security.SecurityElement.Escape(result.GetProperty("uploader").ToString());
@@ -73,49 +75,84 @@ namespace Lincon
                     var duration = System.Security.SecurityElement.Escape(result.GetProperty("duration").ToString());
                     var channel_id = System.Security.SecurityElement.Escape(result.GetProperty("channel_id").ToString());
                     var view_count = System.Security.SecurityElement.Escape(result.GetProperty("view_count").ToString());
+                    var published = $"{DateTime.UnixEpoch:yyyy-MM-ddTHH:mm:ss.fffZ}"; // placeholder pretty much
+                    var description = "placeholder";
+                    var rating = 0;
+                    var dislikes = 0;
+                    var likes = 0;
+
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
                     // if you'd like to replace all ' with ' feel free
                     // I forgot about ' untiul I added the media links
 
-                    var item = $@"<entry>
-                            <id>tag:youtube.com,2008:playlist:{id}</id>
-                            <published>2025-07-04T14:04:29.000Z</published>
-                            <updated>2025-07-04T14:04:29.000Z</updated>
-                            <category scheme='http://gdata.youtube.com/schemas/2007/categories.cat' label='-' term='-' >-</category>
-                            <title type='text'>{title}</title>
-                            <content type='text'>{uploader}</content>
-                            <link rel='http://gdata.youtube.com/schemas/2007#video.related' href='http://PLACEHOLDER/feeds/api/videos/{channel_id}/related'/>
+                    var item = $"""
+                        <entry>
+                            <id>tag:youtube.com,2008:video:{id}</id>
+                            <published>{published}</published>
+                            <updated>{published}</updated>
+                            <category scheme='https://schemas.google.com/g/2005#kind' term='https://gdata.youtube.com/schemas/1970#video'/>
+                                <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
+                            <title>{title}</title>
+                            <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
+                            <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
+                            <link rel='http://gdata.youtube.com/schemas/2007#video.related' type='application/atom+xml' href="https://gdata.youtube.com/feeds/api/videos/{id}/related"/>
+                            <link rel='https://gdata.youtube.com/schemas/1970#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
+                            <link rel='https://gdata.youtube.com/schemas/1970#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
+                            <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
+                            <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
                             <author>
                                 <name>{uploader}</name>
-                                <uri>{request.Scheme}://{request.Host}{request.PathBase}/feeds/api/users/{channel_id}</uri>
+                                <uri>https://gdata.youtube.com/feeds/api/users/{channel_id}</uri>
+                                <yt:userId>{channel_id}</yt:userId>
                             </author>
+                            <yt:accessControl action='comment' permission='allowed'/>
+                            <yt:accessControl action='commentVote' permission='allowed'/>
+                            <yt:accessControl action='videoRespond' permission='moderated'/>
+                            <yt:accessControl action='rate' permission='allowed'/>
+                            <yt:accessControl action='embed' permission='allowed'/>
+                            <yt:accessControl action='list' permission='allowed'/>
+                            <yt:accessControl action='autoPlay' permission='allowed'/>
+                            <yt:accessControl action='syndicate' permission='allowed'/>
                             <gd:comments>
-                                <gd:feedLink href='{request.Scheme}://{request.Host}{request.PathBase}/feeds/api/videos/{id}/comments' countHint='530'/>
+                                <gd:feedLink rel='https://gdata.youtube.com/schemas/1970#comments' href='{base_url}/api/videos/{id}/comments' countHint='5'/>
                             </gd:comments>
+                            <yt:location>Cleveland ,US</yt:location>
                             <media:group>
-                                <media:category label='-' scheme='http://gdata.youtube.com/schemas/2007/categories.cat'>-</media:category>
-                                <media:description type='plain'>{uploader}</media:description>
-                                <media:keywords>-</media:keywords>
-                                <media:player url='http://www.youtube.com/watch?v=XVBL9-GwzU0'/>
-                                <media:thumbnail yt:name='hqdefault' url='{thumbnail}' height='240' width='320' time='00:00:00'/>
-                                <media:thumbnail yt:name='poster' url='{thumbnail}' height='240' width='320' time='00:00:00'/>
-                                <media:thumbnail yt:name='default' url='{thumbnail}g' height='240' width='320' time='00:00:00'/>
-                                <media:content url='{request.Scheme}://{request.Host}{request.PathBase}/getvideo/{id}' type='video/mp4' medium='video' isDefault='true' expression='full' duration='0' yt:format='3' />
-                                <media:content url='{request.Scheme}://{request.Host}{request.PathBase}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='0' yt:format='2' />
-                                <media:content url='{request.Scheme}://{request.Host}{request.PathBase}/getvideo/{id}' type='video/mp4' medium='video' expression='full' duration='0' yt:format='8' />
-                                <media:content url='{request.Scheme}://{request.Host}{request.PathBase}/getvideo/{id}' type='video/mp4' medium='video' expression='full' duration='0' yt:format='8' />             
-                                <media:content url='{request.Scheme}://{request.Host}{request.PathBase}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='0' yt:format='9' />             
+                                <media:category label='Howto &amp; Style' scheme='https://gdata.youtube.com/schemas/1970/categories.cat'>Howto</media:category>
+                                <media:content url='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='{duration}' yt:format='5'/>
+                                <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='1'/>
+                                <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='6'/>
+                                <media:credit role='uploader' scheme='urn:youtube' yt:display='{uploader}' yt:type='partner'>{channel_id}</media:credit>
+                                <media:description type='plain'>{description}</media:description>
+                                <media:keywords/>
+                                <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
+                                <media:player url='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata_player'/>
+                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
+                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
+                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
+                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
+                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
+                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
+                                <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{duration}" yt:format="3"/>
+                                <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="2"/>
+                                <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="8"/>
+                                <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="9"/>
+                                <media:title type='plain'>{title}</media:title>
                                 <yt:duration seconds='{duration}'/>
-                                <yt:videoid id='{id}'>{id}</yt:videoid>
-                                <media:credit role='uploader' name='{channel_id}'>{uploader}</media:credit>
+                                <yt:uploaded>{published}</yt:uploaded>
+                                <yt:uploaderId>{channel_id}</yt:uploaderId>
+                                <yt:videoid>{id}</yt:videoid>
                             </media:group>
-                            <gd:rating average='5' max='5' min='1' numRaters='1641' rel='http://schemas.google.com/g/2005#overall'/>
-                            <yt:statistics favoriteCount='6564' viewCount='{view_count}'/>
-                            <yt:rating numLikes='59080' numDislikes='6564'/>
+                                <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
+                                <yt:recorded>1970-08-22</yt:recorded>
+                                <yt:statistics favoriteCount='0' viewCount="{view_count}"/>
+                                <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
+                                <yt:position>1</yt:position>
                         </entry>
-                    ";
+                    """;
 
-                    var video = item.Split(); // uh this converts it to what range wants jank I know.
+                    var video = item.Split("\n");
 
                     combined.AddRange(video);
 
@@ -141,32 +178,41 @@ namespace Lincon
 
                 var data = await ExtractData(json, request);
 
-                string template = @$"<?xml version='1.0' encoding='UTF-8'?>
-                    <feed xmlns='http://www.w3.org/2005/Atom'
-                        xmlns:openSearch='http://a9.com/-/spec/opensearch/1.1/'
-                        xmlns:gd='http://schemas.google.com/g/2005'
-                        xmlns:media='http://search.yahoo.com/mrss/'
-                        xmlns:yt='http://gdata.youtube.com/schemas/2007'>
+                var base_url = "{request.Scheme}://{request.Host}{request.PathBase}";
+
+                var continuation = "todo";
+
+                var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+                    <feed xmlns=""http://www.w3.org/2005/Atom""
+                        xmlns:gd=""http://schemas.google.com/g/2005""
+                        xmlns:openSearch=""http://a9.com/-/spec/opensearch/1.1/""
+                        xmlns:yt=""http://gdata.youtube.com/schemas/2007""
+                        xmlns:media=""http://search.yahoo.com/mrss/"">
                         <id>tag:youtube.com,2008:channels</id>
-                        <updated>2015-02-16T19:14:12.656Z</updated>
-                        <category scheme='http://schemas.google.com/g/2005#kind' term='http://gdata.youtube.com/schemas/2007#video'/>
-                        <title type='text'>YouTube Videos</title>
+                        <updated>{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}</updated>
+                        <category scheme=""http://schemas.google.com/g/2005#kind"" term=""http://gdata.youtube.com/schemas/2007#channel""/>
+                        <title>Channels matching: webauditors</title>
                         <logo>http://www.gstatic.com/youtube/img/logo.png</logo>
-                        <link rel='alternate' type='text/html' href='http://www.youtube.com'/>
-                        <link rel='http://schemas.google.com/g/2005#feed' type='application/atom+xml' href='http://gdata.youtube.com/feeds/api/videos'/>
-                        <link rel='http://schemas.google.com/g/2005#batch' type='application/atom+xml' href='http://gdata.youtube.com/feeds/api/videos/batch'/>
+                        <link rel=""http://schemas.google.com/g/2006#spellcorrection"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=web+auditors&amp;start-index=1&amp;max-results=1&amp;oi=spell&amp;spell=1&amp;v=2"" title=""web auditors""/>
+                        <link rel=""http://schemas.google.com/g/2005#feed"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?v=2""/>
+                        <link rel=""http://schemas.google.com/g/2005#batch"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels/batch?v=2""/>
+                        <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=webauditors&amp;start-index=1&amp;max-results=1&amp;v=2""/>
+                        <link rel=""service"" type=""application/atomsvc+xml"" href=""{base_url}/feeds/api/channels?alt=atom-service&amp;v=2""/>
+                        {(continuation != null 
+                            ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>" 
+                            : "")}
                         <author>
                             <name>YouTube</name>
                             <uri>http://www.youtube.com/</uri>
                         </author>
-                        <generator version='2.1' uri='http://gdata.youtube.com/'>YouTube data API</generator>
-                        <openSearch:totalResults>1</openSearch:totalResults>
+                        <generator version=""2.1"" uri=""{base_url}"">YouTube data API</generator>
+                        <openSearch:totalResults>{data.Item2}</openSearch:totalResults>
                         <openSearch:startIndex>1</openSearch:startIndex>
-                        <openSearch:itemsPerPage>{data.Item2}</openSearch:itemsPerPage>
-                        <link rel='next' type='application/atom+xml' href='{request.Scheme}://{request.Host}{request.PathBase}/feeds/api/videos?q=bob&amp;start-index=20'/>
-                        {data.Item1} 
+                        <openSearch:itemsPerPage>1</openSearch:itemsPerPage>
+                        {data.Item1}
                     </feed>";
 
+                                    
                     return Results.Content(template, "application/xml"); // broken on firefox 
                 }
                 catch (Exception ex)

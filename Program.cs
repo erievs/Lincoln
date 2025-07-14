@@ -76,6 +76,9 @@ HandleWebpages.HandlePages(app);
 // device registration crap
 DeviceRegistration.HandleDevices(app);
 
+// categories
+HandleCategories.Handle(app);
+
 // search
 SearchFeed.HandleFeed(app);
 

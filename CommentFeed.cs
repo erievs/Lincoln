@@ -71,32 +71,33 @@ namespace Lincon
                     var id = System.Security.SecurityElement.Escape(result.GetProperty("id").ToString());
                     var text = System.Security.SecurityElement.Escape(result.GetProperty("text").ToString());
                     var uploader = System.Security.SecurityElement.Escape(result.GetProperty("author").ToString());
-                    var uploader_id = System.Security.SecurityElement.Escape(result.GetProperty("author_id").ToString());
+                    var channel_id = System.Security.SecurityElement.Escape(result.GetProperty("author_id").ToString());
                     var uploader_pfp = System.Security.SecurityElement.Escape(result.GetProperty("author_thumbnail").ToString());
-                    var timestamp = System.Security.SecurityElement.Escape(result.GetProperty("timestamp").ToString());
+                    var timestamp = $"{DateTime.UnixEpoch:yyyy-MM-ddTHH:mm:ss.fffZ}";
 
-                    var item = $@"<entry gd:etag='placeholder'>
-                            <id>tag:youtube.com,2008:video:{video_id}:comment:{id}</id>
+                    var item = $"""
+                        <entry>
+                            <id>tag:youtube.com,2008:video:{id}:comment:</id>
                             <published>{timestamp}</published>
                             <updated>{timestamp}</updated>
                             <category scheme='http://schemas.google.com/g/2005#kind' term='http://gdata.youtube.com/schemas/2007#comment'/>
                             <title>Comment from {uploader}</title>
                             <content>{text}</content>
-                            <link rel='related' type='application/atom+xml' href='http://gdata.youtube.com/feeds/api/videos/{video_id}?v=2'/>
-                            <link rel='alternate' type='text/html' href='http://www.youtube.com/watch?v={video_id}'/>
-                            <link rel='self' type='application/atom+xml' href='http://gdata.youtube.com/feeds/api/videos/{video_id}/comments/useless?v=2'/>
+                            <link rel='related' type='application/atom+xml' href="http://gdata.youtube.com/feeds/api/videos/{id}?v=2"/>
+                            <link rel='alternate' type='text/html' href="http://www.youtube.com/watch?v={id}"/>
+                            <link rel='self' type='application/atom+xml' href="http://gdata.youtube.com/feeds/api/videos/{id}/comments/useless?v=2"/>
                             <author>
                                 <name>{uploader}</name>
-                                <uri>{uploader_id}</uri>
-                                <yt:userId>{uploader_id}</yt:userId>
+                                <uri>{channel_id}</uri>
+                                <yt:userId>{channel_id}</yt:userId>
                             </author>
-                            <yt:channelId>{uploader_id}</yt:channelId>
-                            <yt:replyCount>0</yt:replyCount>
-                            <yt:videoid>{video_id}</yt:videoid>
+                            <yt:channelId>{channel_id}</yt:channelId>
+                            <yt:replyCount>1</yt:replyCount>
+                            <yt:videoid>{id}</yt:videoid>
                         </entry>
-                    ";
+                    """;
 
-                    var comment = item.Split();
+                    var comment = item.Split("\n");
 
                     combined.AddRange(comment);
 
@@ -106,7 +107,7 @@ namespace Lincon
                 return (string.Join("\n", combined), comments.EnumerateArray().Count());
             }
 
-            app.MapGet(@"/feeds/api/videos/{video_id}/comments", async (string video_id, HttpRequest request) => 
+            app.MapGet(@"/api/videos/{video_id}/comments", async (string video_id, HttpRequest request) => 
             {
                 try
                 {
@@ -122,29 +123,38 @@ namespace Lincon
 
                 var data = await ExtractData(json, video_id, request);
 
-                string template = @$"<?xml version='1.0' encoding='UTF-8'?>
-                    <feed xmlns='http://www.w3.org/2005/Atom'
-                            xmlns:media='http://search.yahoo.com/mrss/'
-                            xmlns:openSearch='http://a9.com/-/spec/opensearchrss/1.0/'
-                            xmlns:gd='http://schemas.google.com/g/2005'
-                            xmlns:yt='http://gdata.youtube.com/schemas/2007'>
-                        <id>http://gdata.youtube.com/feeds/api/standardfeeds/us/recently_featured</id>
+                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+
+                var continuation = "todo";
+
+                var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+                    <feed xmlns=""http://www.w3.org/2005/Atom""
+                        xmlns:gd=""http://schemas.google.com/g/2005""
+                        xmlns:openSearch=""http://a9.com/-/spec/opensearch/1.1/""
+                        xmlns:yt=""http://gdata.youtube.com/schemas/2007""
+                        xmlns:media=""http://search.yahoo.com/mrss/"">
+                        <id>tag:youtube.com,2008:channels</id>
                         <updated>{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}</updated>
-                        <category scheme='http://schemas.google.com/g/2005#kind' 
-                                    term='http://gdata.youtube.com/schemas/2007#video'/>
-                        <title type='text'>YouTube Feed</title>
-                        <logo>http://www.youtube.com/img/pic_youtubelogo_123x63.gif</logo>
+                        <category scheme=""http://schemas.google.com/g/2005#kind"" term=""http://gdata.youtube.com/schemas/2007#channel""/>
+                        <title>Channels matching: webauditors</title>
+                        <logo>http://www.gstatic.com/youtube/img/logo.png</logo>
+                        <link rel=""http://schemas.google.com/g/2006#spellcorrection"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=web+auditors&amp;start-index=1&amp;max-results=1&amp;oi=spell&amp;spell=1&amp;v=2"" title=""web auditors""/>
+                        <link rel=""http://schemas.google.com/g/2005#feed"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?v=2""/>
+                        <link rel=""http://schemas.google.com/g/2005#batch"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels/batch?v=2""/>
+                        <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=webauditors&amp;start-index=1&amp;max-results=1&amp;v=2""/>
+                        <link rel=""service"" type=""application/atomsvc+xml"" href=""{base_url}/feeds/api/channels?alt=atom-service&amp;v=2""/>
+                        {(continuation != null 
+                            ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>" 
+                            : "")}
                         <author>
                             <name>YouTube</name>
                             <uri>http://www.youtube.com/</uri>
                         </author>
-                        <generator version='2.0' uri='http://gdata.youtube.com/'>YouTube data API</generator>
-                        <openSearch:totalResults>25</openSearch:totalResults>
+                        <generator version=""2.1"" uri=""{base_url}"">YouTube data API</generator>
+                        <openSearch:totalResults>{data.Item2}</openSearch:totalResults>
                         <openSearch:startIndex>1</openSearch:startIndex>
-                        <openSearch:itemsPerPage>25</openSearch:itemsPerPage>
-                        <entry gd:etag=' '>
-                            {data}
-                        </entry>
+                        <openSearch:itemsPerPage>1</openSearch:itemsPerPage>
+                        {data.Item1}
                     </feed>";
 
                     return Results.Content(template, "application/xml"); // broken on firefox 
