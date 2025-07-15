@@ -10,7 +10,7 @@ using YoutubeDLSharp.Options;
 namespace Lincon
 {
 
-    public static class SearchFeed
+    public static class StandardFeeds
     {
 
         public static void HandleFeed(WebApplication app)
@@ -162,25 +162,88 @@ namespace Lincon
                 return (string.Join("\n", combined), videos.EnumerateArray().Count());
             }
 
-            app.MapGet(@"/feeds/api/videos/", async (HttpRequest request) => // needs to be ?q at some point for real hardware
+            app.MapGet(@"/feeds/api/standardfeeds/US/{feed}", async (string feed, HttpRequest request) => // needs to be ?q at some point for real hardware
             {
                 try
                 {
-                    string? query = System.Security.SecurityElement.Escape(request.Query["q"]);
-                    // I forgot how to use ? : thingy so I am just doing a if, feel free to change
-                    if(String.IsNullOrEmpty(query)) {
+
+                if(String.IsNullOrEmpty(feed)) {
                     return Results.StatusCode(500);
                 }
 
-                Console.WriteLine("\nQuery: " + query);
+                Console.WriteLine("\nFeed: " + feed);
 
-                var json = await UseYTDlP($"ytsearch20:{query}");
+                var feed_url = "";
+
+                switch(feed) {
+                    
+
+                    // may have to replace with search soon
+                    // i heard rumors they may get rid of this feed
+
+                    case "most_popular_News":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=news+today";                    
+                    break;
+
+                    case "most_popular_Games":
+                        feed_url = "https://www.youtube.com/gaming/trending";                    
+                    break;
+
+                    case "most_popular_Music":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=music";                    
+                    break;
+
+                    case "most_popular_Tech":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Tech";                    
+                    break;
+
+                    case "most_popular_Sports":
+                        feed_url = "https://www.youtube.com/channel/UCEgdi0XIXXZ-qJOFPf4JSKw/sportstab?ss=CMcB";                    
+                    break;
+
+                    case "most_popular_Film":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=film+and+animation+";                    
+                    break;
+
+                    case "most_popular_Entertainment":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=entertainment";                    
+                    break;
+
+                    case "most_popular_Howto":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=How+To";                    
+                    break;
+
+                    case "most_popular_Education":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Education";                    
+                    break;
+
+                    case "most_popular_Animals":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Animals";                    
+                    break;
+
+                    case "most_popular_Comedy":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Comedy";                    
+                    break;
+
+                    case "most_popular_Travel":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Travel";                    
+                    break;
+
+                    case "most_popular_Auto":
+                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Auto+and+Vehicles";                    
+                    break;
+
+                    default:
+                      feed_url = "https://www.youtube.com/feed/trending?bp=6gQJRkVleHBsb3Jl";
+                    break;
+
+                }
+
+                var json = await UseYTDlP($"{feed_url}");
 
                 var data = await ExtractData(json, request);
 
                 var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
-
-                var continuation = "todo";
 
                 var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                     <feed xmlns=""http://www.w3.org/2005/Atom""
@@ -198,9 +261,6 @@ namespace Lincon
                         <link rel=""http://schemas.google.com/g/2005#batch"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels/batch?v=2""/>
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=webauditors&amp;start-index=1&amp;max-results=1&amp;v=2""/>
                         <link rel=""service"" type=""application/atomsvc+xml"" href=""{base_url}/feeds/api/channels?alt=atom-service&amp;v=2""/>
-                        {(continuation != null 
-                            ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>" 
-                            : "")}
                         <author>
                             <name>YouTube</name>
                             <uri>http://www.youtube.com/</uri>

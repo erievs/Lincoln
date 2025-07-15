@@ -82,6 +82,9 @@ HandleCategories.Handle(app);
 // search
 SearchFeed.HandleFeed(app);
 
+// standard feeds
+StandardFeeds.HandleFeed(app);
+
 // comments
 CommentFeed.HandleFeed(app);
 

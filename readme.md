@@ -10,7 +10,7 @@ Free the tubes!
 
 - [*] Search: Working
 
-- [O] Standard Feeds: Not Started
+- [F] Standard Feeds: Finished
 
 - [*] Comments: Started
 

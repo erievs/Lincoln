@@ -82,7 +82,7 @@ namespace Lincon
                             var result = new List<string>();
                             for (int i = 0; i < lines.Count; i++)
                             {
-                                if (lines[i].Contains("vp09") || lines[i].Contains("av1"))
+                                if (lines[i].Contains("vp09") || lines[i].Contains("vp09"))
                                 {
                                     i++;
                                     continue;
