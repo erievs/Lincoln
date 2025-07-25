@@ -6,3 +6,5 @@ assets/tokens.json
 bin/
 obj/
 /obj/
+/obj
+/bin
