@@ -2,9 +2,11 @@ yt-dlp
 ffmpeg
 assets/tokens.json
 /assets/tokens.json
-/bin/
 bin/
 obj/
-/obj/
-/obj
-/bin
+.vs/
+.vscode/
+.user
+*.dll
+*.exe
+*.pdb
