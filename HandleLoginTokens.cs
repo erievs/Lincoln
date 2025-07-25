@@ -106,7 +106,6 @@ namespace Lincon
                 Console.WriteLine("'responseContext' or 'serviceTrackingParams' missing or malformed in JSON.");
             }
 
-
             Console.WriteLine("Access token validation returning false.");
             return false;
         }

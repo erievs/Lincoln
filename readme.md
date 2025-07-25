@@ -89,7 +89,7 @@ is the proper endpoint YouTube used back in the day, and not /getvideo/ (what Tu
 
 - The HLS system is pretty simple, all it does it download the manifiest_url, and remove all lines that contain vp9 (may have to add av1 as well idk)!
 
-- Your DeviceId is linked to your access token/refresh token!
+- Your DeviceId is linked to your /refresh token!
 
 - The recommendations works, but on 5.1xx it is a little fiesty (just keep retrying it'll work!). It is weird I have looked through
 logcat and such!

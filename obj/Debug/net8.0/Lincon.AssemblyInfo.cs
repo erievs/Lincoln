@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Lincon")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+604e4b02d3242132d6f2fd8d28ccf4f28cb4fd6f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6fa3cd3938684d1d1d556d1c3fd07eca67ea02f8")]
 [assembly: System.Reflection.AssemblyProductAttribute("Lincon")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Lincon")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

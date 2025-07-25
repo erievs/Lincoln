@@ -73,8 +73,6 @@ namespace Lincon
                         avatar_url = urlProp.GetString() ?? "";
                     }
 
-                    Console.WriteLine("\nURl PFP " + avatar_url);
-
                     var firstThumbnail = thumbnails[0];
                     if (firstThumbnail.TryGetProperty("url", out JsonElement bannerProp))
                     {
