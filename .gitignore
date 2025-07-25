@@ -4,3 +4,5 @@ assets/tokens.json
 /assets/tokens.json
 /bin/
 bin/
+obj/
+/obj/
