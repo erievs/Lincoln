@@ -5,5 +5,6 @@
     <Import Project="$(NuGetPackageRoot)microsoft.extensions.apidescription.server/8.0.14/build/Microsoft.Extensions.ApiDescription.Server.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.extensions.apidescription.server/8.0.14/build/Microsoft.Extensions.ApiDescription.Server.targets')" />
     <Import Project="$(NuGetPackageRoot)nswag.aspnetcore/14.4.0/build/NSwag.AspNetCore.targets" Condition="Exists('$(NuGetPackageRoot)nswag.aspnetcore/14.4.0/build/NSwag.AspNetCore.targets')" />
     <Import Project="$(NuGetPackageRoot)microsoft.extensions.logging.abstractions/9.0.7/buildTransitive/net8.0/Microsoft.Extensions.Logging.Abstractions.targets" Condition="Exists('$(NuGetPackageRoot)microsoft.extensions.logging.abstractions/9.0.7/buildTransitive/net8.0/Microsoft.Extensions.Logging.Abstractions.targets')" />
+    <Import Project="$(NuGetPackageRoot)grpc.tools/2.71.0/build/Grpc.Tools.targets" Condition="Exists('$(NuGetPackageRoot)grpc.tools/2.71.0/build/Grpc.Tools.targets')" />
   </ImportGroup>
 </Project>

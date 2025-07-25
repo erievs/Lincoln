@@ -14,15 +14,21 @@ Free the tubes!
 
 - [*] Comments: Started
 
-- [O] User Info: Not started
+- [*] Related Videos: Started
+
+- [^] User Info: Started
 
 - [F] Get Video: Finished 
+
+- [*] Protobuff Player: Mostly Finished
 
 - [O] Client Login: Not Started
 
 - [O] IOS v1.xx Login: Not Started
+
+- [0] Android (V2.xx through V5.xx) Login: You can login, many login features work, and many dont.
  
-- [O] Default Feeds: Not started
+- [^] Default Feeds: Subcriptions, Recommendations (You will have to click retry like 5-10 times on startup! IDK WHY IT IS FIESTY).
 
 - [O] Ratings: Not Started
  
@@ -30,9 +36,9 @@ Free the tubes!
 
 - [F] Means it is finished, and tested! 
 
-- [*] Means that the feed works, however is lacking pagination/and or proper dates. 
+- [*] Means that the feed works, however is lacking pagination/and or proper dates (or other minor way). 
 
-- [^] Means working to some degree, however is lacking in some very important way.
+- [^] Means working to some degree, however is lacking in some very important way, or has multiple other feeds that haven't been done.
 
 - [?] Means it has been implemented to some degree, however hasen't been tested.
 
@@ -52,22 +58,22 @@ Free the tubes!
 
 - YouTube Windows 7 Gadget
 
-- Android (1.xx through 5.xx)
+- Android (1.xx to 4.xx work, 5.1.x and above work, 5.0.x doesn't work for videos).
 
-- Windows Phone Offical YouTube App
+- Windows Phone Offical YouTube App (Some Progress, JSON feeds are done)
 
 - And More!
 
 # What Is This?
 
 This is a reimplementation of YouTube's old GDATA v2 API, which was YouTube primary API from
-roughly 2008 through 2013/2014. 
+roughly 2008(2007) through 2013/2014. 
 
 # Tidbits
 
 - Lincoln is built around yt-dlp wrapper, and makes as few as possible requsts to InnerTube directly,
 which means that as long as yt-dlp is around (and download urls stick around) this should as well. Even
-if this stops receiving updates.
+if this stops receiving updates. Due take in mind some login stuff doesn't!
 
 - This is a continuation/reimagining of my older "JATB3000" project.
 
@@ -83,15 +89,23 @@ is the proper endpoint YouTube used back in the day, and not /getvideo/ (what Tu
 
 - The HLS system is pretty simple, all it does it download the manifiest_url, and remove all lines that contain vp9 (may have to add av1 as well idk)!
 
+- Your DeviceId is linked to your access token/refresh token!
+
+- The recommendations works, but on 5.1xx it is a little fiesty (just keep retrying it'll work!). It is weird I have looked through
+logcat and such!
+
 # Server Setup
 
 [**THIS IS VERY EARLY DEVELOPMENT, YOU HAVE BEEN WARNED**]
+
+[**IF YOU HAVE IP ISSUES MAKE SURE TO CHECK IN launchSettings.json !**]
+[**IT USES 192.168.1.150 BY DEFAULT**]
 
 - Step 1 `git clone https://github.com/erievs/Lincoln`
 
 - Step 2 `cd Lincoln`
 
-- Step 3 `dotnet Run`
+- Step 3 `dotnet run`
 
 - Step 4 (Optional) For mobile devices and the like, you will need to set Lincoln to use your computer's local ip-address.
 Please remember you're local ip-address IS NOT the same as your public ip-address, this is the address local devices use in your
@@ -107,7 +121,10 @@ terminal and run `ifconfig` and see if you can find "IPv4 address" (haven't test
 
 - Step 6 (Optional) Go to the `launchSettings.json` file we opened and under profiles replace every instance of `http://localhost:5156`or `192.168.1.150:8090` 
 with `http://{your_address_here}:5156` (you can replace 5156 with whatever port you want, I prefer 8090). Ctrl-C out of the server, rerun `dotnet run`, and 
-you're good!
+you're good! 
+
+[Note: *If you're patching an android app! You HAVE TO not add a port like :8090, just remove it or replace it with 80, if you're just doing flash or IOS
+you're good, on linux you'll need to run `sudo dotnet run` rather than no sudo!*]
 
 [Note: If you're on Linux you may need to run `chmod +x yt-dlp` and `chmod +x ffmpeg`, this can be done
 with a GUI on most File Manangers by right-clicking and "Allow executing file as program" (in Mate it is in 
@@ -125,8 +142,28 @@ in the server input box put `http://{youradress}:{yourport}` DO NOT add a `/` at
 
 - Step 4 Close out of any opened YouTube app, and enjoy!
 
-## Libraries Used
+## Android Setup
+
+- This is a very early WIP, https://github.com/ftde0/yt2009/blob/main/apk_setup.md , and make sure to also replace any
+"googleapis.com" request or of the sort with your your ip, and if you see "https" (JUST "HTTPS") near "gdata.youtube.com"
+please change it to "http"!
+
+## Android Login
+
+[**IF SIGN IN DOESNT WORK, YOU PROBBALY DIDN"T LINK YOUR ACCOUNT**]
+
+- Step 1 Click on a video that says "Link Your Google Account" or something like that.
+
+- Step 2 In the description click the link!
+
+- Step 3 Go to to google.com/device, and link your device with the code!
+
+- Step 4 Go back to your device, and sign in (make sure to click the first result!).
+
+## Libraries Used / Credits
 
 - https://github.com/Bluegrams/YoutubeDLSharp (Bluegrams)
 
 - System.Text.Json (I know this is baked in, but we don't use Newtonsoft)
+
+- https://github.com/ftde0/yt2009/blob/main/back/proto/ (YT2009, for Protobuffs!)

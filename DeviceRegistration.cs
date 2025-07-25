@@ -51,7 +51,8 @@ namespace Lincon
 
 
             // Android/Google IOS 
-            app.MapPost("/youtube/accounts/registerDevice", (HttpRequest request) =>  {
+            app.MapPost("/youtube/accounts/registerDevice", (HttpRequest request) => 
+             {
                 
                 Guid uuid = Guid.NewGuid();
 
@@ -59,12 +60,33 @@ namespace Lincon
 
                 Regex.Replace(stringedUUID, "/-/g", "");
 
-                Console.WriteLine($"\nRegisterDevice: DeviceId={stringedUUID}, DeviceKey={stringedUUID}");
+                Console.WriteLine($"\nRegisterDevice: DeviceId={stringedUUID}, DeviceKey=ULxlVAAVMhZ2GeqZA/X1GgqEEIP1ibcd3S+42pkWfmk=");
 
-                return Results.Content($"DeviceId={stringedUUID}\nDeviceKey={stringedUUID}");
+                return Results.Content($"DeviceId={stringedUUID}\nDeviceKey=ULxlVAAVMhZ2GeqZA/X1GgqEEIP1ibcd3S+42pkWfmk=");
 
             });
 
+            // Android 5.x
+            app.MapPost("/deviceregistration/v1/devices", (HttpRequest request) => 
+             {
+                
+                Guid uuid = Guid.NewGuid();
+
+                string stringedUUID = uuid.ToString();
+
+                Regex.Replace(stringedUUID, "/-/g", "");
+
+                var output = new
+                {
+                    Id = stringedUUID,
+                    key = "AP+lc79/lqV58X9FLDdn7SiOzH8hDb1ItXMmm25Cb4YDLWZkI+gXBiwwOvcssAY"
+                };
+
+                Console.WriteLine($"\nOutput: {output}");
+               
+                return Results.Ok(output);
+
+            });
 
         }
 

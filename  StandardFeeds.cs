@@ -2,10 +2,11 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Lincon.Enums;
 using Namotion.Reflection;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Options;
-
+using Google.Protobuf;
 
 namespace Lincon
 {
@@ -21,9 +22,9 @@ namespace Lincon
             HttpClient client = new();
             Dictionary<string, string> videoDict = [];
 
-            
+
             async Task<string> UseYTDlP(string query)
-            {     
+            {
                 // WE WILL NEED MORE OPTIONS
                 // youtube:search: [youtube] YouTube search; "ytsearch:" prefix (e.g. "ytsearch:running tortoise")
 
@@ -34,12 +35,11 @@ namespace Lincon
                     FlatPlaylist = true,
                     WriteComments = true
                 };
-                
 
                 var res = await ytdlp.RunVideoDataFetch(query, overrideOptions: options);
 
                 Console.WriteLine("\nRes:\n" + res.Data);
-                    
+
                 // still very cool we do not need to deal with the innertube directly
                 // wish I would have known about this earliler lol
 
@@ -49,117 +49,222 @@ namespace Lincon
                 return res.Data.ToString();
             }
 
-            async Task<(string, int)> ExtractData(string data, HttpRequest request)
+            Tuple<string, int> ExtractData(string data, HttpRequest request)
             {
-                await Task.Delay(0); // why uh we got that stupid warning (GOD I HATE ASYNC)
 
                 using var res = JsonDocument.Parse(data);
 
                 if (!res.RootElement.TryGetProperty("entries", out var videos))
-                    return ("", 0);
-
+                {
+                    return Tuple.Create("", 0);
+                }
 
                 var combined = new List<string>();
 
-                // results (no linqs, because I don't understand linqs that much)
-                // I know we used em in get_video but there's only one value you need the url 
-                // here is more trcky
+                var video_count = videos.EnumerateArray().Count();
+                
 
-                foreach(var result in videos.EnumerateArray()) {
-                    
-                    // you must escape the feilds (I learbed that the hard way once)
-                    var id = System.Security.SecurityElement.Escape(result.GetProperty("id").ToString());
-                    var title = System.Security.SecurityElement.Escape(result.GetProperty("title").ToString());
-                    var uploader = System.Security.SecurityElement.Escape(result.GetProperty("uploader").ToString());
+                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+
+                string? device_id = null;
+
+
+                if (request.Headers.TryGetValue("X-GData-Device", out var deviceHeaderValues))
+                {
+                    var deviceHeader = deviceHeaderValues.ToString();
+                    var prefix = "device-id=\"";
+                    var startIndex = deviceHeader.IndexOf(prefix);
+                    if (startIndex >= 0)
+                    {
+                        startIndex += prefix.Length;
+                        var endIndex = deviceHeader.IndexOf("\"", startIndex);
+                        if (endIndex > startIndex)
+                        {
+                            device_id = deviceHeader.Substring(startIndex, endIndex - startIndex);
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No Device ID!");
+                }
+
+                if (!String.IsNullOrEmpty(device_id) && !AndroidLogin.IsDeviceLinked(device_id))
+                {
+
+                    var id = "jNQXAC9IVRw";
+                    var title = "Link Your Google Account!";
+                    var uploader = "Lincoln";
                     var thumbnail = $"https://i.ytimg.com/vi/{id}/hqdefault.jpg";
-                    var duration = System.Security.SecurityElement.Escape(result.GetProperty("duration").ToString());
-                    var channel_id = System.Security.SecurityElement.Escape(result.GetProperty("channel_id").ToString());
-                    var view_count = System.Security.SecurityElement.Escape(result.GetProperty("view_count").ToString());
-                    var published = $"{DateTime.UnixEpoch:yyyy-MM-ddTHH:mm:ss.fffZ}"; // placeholder pretty much
-                    var description = "placeholder";
-                    var rating = 0;
-                    var dislikes = 0;
-                    var likes = 0;
-
-                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
-
-                    // if you'd like to replace all ' with ' feel free
-                    // I forgot about ' untiul I added the media links
+                    double duration = 19;
+                    var channel_id = "lincoln";
+                    var view_count = 10;
+                    var published = "1970-01-01T00:00:00.000Z";
+                    var description = $"Visit {base_url}/register_android?device_id={device_id}";
+                    var rating = 3;
+                    var dislikes = 12;
+                    var likes = 100;
 
                     var item = $"""
-                        <entry>
-                            <id>tag:youtube.com,2008:video:{id}</id>
-                            <published>{published}</published>
-                            <updated>{published}</updated>
-                            <category scheme='https://schemas.google.com/g/2005#kind' term='https://gdata.youtube.com/schemas/1970#video'/>
-                                <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
-                            <title>{title}</title>
-                            <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
-                            <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
-                            <link rel='http://gdata.youtube.com/schemas/2007#video.related' type='application/atom+xml' href="https://gdata.youtube.com/feeds/api/videos/{id}/related"/>
-                            <link rel='https://gdata.youtube.com/schemas/1970#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
-                            <link rel='https://gdata.youtube.com/schemas/1970#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
-                            <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
-                            <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
-                            <author>
-                                <name>{uploader}</name>
-                                <uri>https://gdata.youtube.com/feeds/api/users/{channel_id}</uri>
-                                <yt:userId>{channel_id}</yt:userId>
-                            </author>
-                            <yt:accessControl action='comment' permission='allowed'/>
-                            <yt:accessControl action='commentVote' permission='allowed'/>
-                            <yt:accessControl action='videoRespond' permission='moderated'/>
-                            <yt:accessControl action='rate' permission='allowed'/>
-                            <yt:accessControl action='embed' permission='allowed'/>
-                            <yt:accessControl action='list' permission='allowed'/>
-                            <yt:accessControl action='autoPlay' permission='allowed'/>
-                            <yt:accessControl action='syndicate' permission='allowed'/>
-                            <gd:comments>
-                                <gd:feedLink rel='https://gdata.youtube.com/schemas/1970#comments' href='{base_url}/api/videos/{id}/comments' countHint='5'/>
-                            </gd:comments>
-                            <yt:location>Cleveland ,US</yt:location>
-                            <media:group>
-                                <media:category label='Howto &amp; Style' scheme='https://gdata.youtube.com/schemas/1970/categories.cat'>Howto</media:category>
-                                <media:content url='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='{duration}' yt:format='5'/>
-                                <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='1'/>
-                                <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='6'/>
-                                <media:credit role='uploader' scheme='urn:youtube' yt:display='{uploader}' yt:type='partner'>{channel_id}</media:credit>
-                                <media:description type='plain'>{description}</media:description>
-                                <media:keywords/>
-                                <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
-                                <media:player url='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata_player'/>
-                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
-                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
-                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
-                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
-                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
-                                <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
-                                <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{duration}" yt:format="3"/>
-                                <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="2"/>
-                                <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="8"/>
-                                <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="9"/>
-                                <media:title type='plain'>{title}</media:title>
-                                <yt:duration seconds='{duration}'/>
-                                <yt:uploaded>{published}</yt:uploaded>
-                                <yt:uploaderId>{channel_id}</yt:uploaderId>
-                                <yt:videoid>{id}</yt:videoid>
-                            </media:group>
-                                <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
-                                <yt:recorded>1970-08-22</yt:recorded>
-                                <yt:statistics favoriteCount='0' viewCount="{view_count}"/>
-                                <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
-                                <yt:position>1</yt:position>
-                        </entry>
+                    <entry>
+                        <id>tag:youtube.com,2008:video:{id}</id>
+                        <published>{published}</published>
+                        <updated>{published}</updated>
+                        <category scheme='https://schemas.google.com/g/2005#kind' term='https://gdata.youtube.com/schemas/1970#video'/>
+                            <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
+                        <title>{title}</title>
+                        <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
+                        <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
+                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="{base_url}/feeds/api/videos/{id}/related"/>
+                        <link rel='http://gdata.youtube.com/schemas/2007#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
+                        <link rel='http://gdata.youtube.com/schemas/2007#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
+                        <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
+                        <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
+                        <author>
+                            <name>{uploader}</name>
+                            <uri>https://gdata.youtube.com/feeds/api/users/{channel_id}</uri>
+                            <yt:userId>{channel_id}</yt:userId>
+                        </author>
+                        <yt:accessControl action='comment' permission='allowed'/>
+                        <yt:accessControl action='commentVote' permission='allowed'/>
+                        <yt:accessControl action='videoRespond' permission='moderated'/>
+                        <yt:accessControl action='rate' permission='allowed'/>
+                        <yt:accessControl action='embed' permission='allowed'/>
+                        <yt:accessControl action='list' permission='allowed'/>
+                        <yt:accessControl action='autoPlay' permission='allowed'/>
+                        <yt:accessControl action='syndicate' permission='allowed'/>
+                        <gd:comments>
+                            <gd:feedLink rel='https://gdata.youtube.com/schemas/1970#comments' href='{base_url}/api/videos/{id}/comments' countHint='5'/>
+                        </gd:comments>
+                        <yt:location>Cleveland ,US</yt:location>
+                        <media:group>
+                            <media:category label='Howto &amp; Style' scheme='https://gdata.youtube.com/schemas/1970/categories.cat'>Howto</media:category>
+                            <media:content url='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='{duration}' yt:format='5'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='1'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='6'/>
+                            <media:credit role='uploader' scheme='urn:youtube' yt:display='{uploader}' yt:type='partner'>{channel_id}</media:credit>
+                            <media:description type='plain'>{description}</media:description>
+                            <media:keywords/>
+                            <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
+                            <media:player url='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata_player'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{duration}" yt:format="3"/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="2"/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="8"/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="9"/>
+                            <media:title type='plain'>{title}</media:title>
+                            <yt:duration seconds='{duration}'/>
+                            <yt:uploaded>{published}</yt:uploaded>
+                            <yt:uploaderId>{channel_id}</yt:uploaderId>
+                            <yt:videoid>{id}</yt:videoid>
+                        </media:group>
+                            <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
+                            <yt:recorded>1970-08-22</yt:recorded>
+                            <yt:statistics favoriteCount='0' viewCount="{view_count}"/>
+                            <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
+                            <yt:position>1</yt:position>
+                    </entry>
                     """;
 
                     var video = item.Split("\n");
 
                     combined.AddRange(video);
-
                 }
 
+                foreach (var result in videos.EnumerateArray())
+                {
 
-                return (string.Join("\n", combined), videos.EnumerateArray().Count());
+                    // you must escape the feilds (I learbed that the hard way once)
+                    var id = System.Security.SecurityElement.Escape(result.GetProperty("id").ToString());
+                    var title = System.Security.SecurityElement.Escape(result.GetProperty("title").ToString());
+                    var uploader = System.Security.SecurityElement.Escape(result.GetProperty("uploader").ToString());
+                    var thumbnail = $"https://i.ytimg.com/vi/{id}/hqdefault.jpg";
+                    double duration = Double.Parse(System.Security.SecurityElement.Escape(result.GetProperty("duration").ToString()));
+                    var channel_id = System.Security.SecurityElement.Escape(result.GetProperty("channel_id").ToString());
+                    var view_count = System.Security.SecurityElement.Escape(result.GetProperty("view_count").ToString());
+                    var published = result.TryGetProperty("view_count", out var d) && d.ValueKind == JsonValueKind.Number ? DateTimeOffset.UtcNow.AddSeconds(-d.GetInt64()).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture) : "1970-01-01T00:00:00.000Z";
+                    var description = System.Security.SecurityElement.Escape(result.GetProperty("description").ToString()) ?? "placeholder";
+                    var rating = 0;
+                    var dislikes = 0;
+                    var likes = 0;
+
+                    var item = $"""
+                    <entry>
+                        <id>tag:youtube.com,2008:video:{id}</id>
+                        <published>{published}</published>
+                        <updated>{published}</updated>
+                        <category scheme='https://schemas.google.com/g/2005#kind' term='https://gdata.youtube.com/schemas/1970#video'/>
+                            <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
+                        <title>{title}</title>
+                        <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
+                        <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
+                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="{base_url}/feeds/api/videos/{id}/related"/>
+                        <link rel='http://gdata.youtube.com/schemas/2007#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
+                        <link rel='http://gdata.youtube.com/schemas/2007#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
+                        <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
+                        <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
+                        <author>
+                            <name>{uploader}</name>
+                            <uri>https://gdata.youtube.com/feeds/api/users/{channel_id}</uri>
+                            <yt:userId>{channel_id}</yt:userId>
+                        </author>
+                        <yt:accessControl action='comment' permission='allowed'/>
+                        <yt:accessControl action='commentVote' permission='allowed'/>
+                        <yt:accessControl action='videoRespond' permission='moderated'/>
+                        <yt:accessControl action='rate' permission='allowed'/>
+                        <yt:accessControl action='embed' permission='allowed'/>
+                        <yt:accessControl action='list' permission='allowed'/>
+                        <yt:accessControl action='autoPlay' permission='allowed'/>
+                        <yt:accessControl action='syndicate' permission='allowed'/>
+                        <gd:comments>
+                            <gd:feedLink rel='http://gdata.youtube.com/schemas/2007comments' href='{base_url}/api/videos/{id}/comments' countHint='5'/>
+                        </gd:comments>
+                        <yt:location>Cleveland ,US</yt:location>
+                        <media:group>
+                            <media:category label='Howto &amp; Style' scheme='http://gdata.youtube.com/schemas/2007/categories.cat'>Howto</media:category>
+                            <media:content url='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='{duration}' yt:format='5'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='1'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='6'/>
+                            <media:credit role='uploader' scheme='urn:youtube' yt:display='{uploader}' yt:type='partner'>{channel_id}</media:credit>
+                            <media:description type='plain'>{description}</media:description>
+                            <media:keywords/>
+                            <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
+                            <media:player url='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata_player'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{duration}" yt:format="3"/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="2"/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="8"/>
+                            <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="9"/>
+                            <media:title type='plain'>{title}</media:title>
+                            <yt:duration seconds='{duration}'/>
+                            <yt:uploaded>{published}</yt:uploaded>
+                            <yt:uploaderId>{channel_id}</yt:uploaderId>
+                            <yt:videoid>{id}</yt:videoid>
+                        </media:group>
+                            <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
+                            <yt:recorded>1970-08-22</yt:recorded>
+                            <yt:statistics favoriteCount='0' viewCount="{view_count}"/>
+                            <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
+                            <yt:position>1</yt:position>
+                    </entry>
+                    """;
+
+                    var video = item.Split("\n");
+
+                    combined.AddRange(video);
+                }
+
+                return Tuple.Create(string.Join("\n", combined), videos.EnumerateArray().Count());
             }
 
             app.MapGet(@"/feeds/api/standardfeeds/US/{feed}", async (string feed, HttpRequest request) => // needs to be ?q at some point for real hardware
@@ -167,85 +272,82 @@ namespace Lincon
                 try
                 {
 
-                if(String.IsNullOrEmpty(feed)) {
-                    return Results.StatusCode(500);
-                }
+                    if (String.IsNullOrEmpty(feed))
+                    {
+                        return Results.StatusCode(500);
+                    }
 
-                Console.WriteLine("\nFeed: " + feed);
+                    Console.WriteLine("\nFeed: " + feed);
 
-                var feed_url = "";
+                    var feed_url = "";
 
-                switch(feed) {
-                    
+                    switch (feed)
+                    {
+                        case "most_popular_News":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=news+today";
+                            break;
 
-                    // may have to replace with search soon
-                    // i heard rumors they may get rid of this feed
+                        case "most_popular_Games":
+                            feed_url = "https://www.youtube.com/gaming/trending";
+                            break;
 
-                    case "most_popular_News":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=news+today";                    
-                    break;
+                        case "most_popular_Music":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=music";
+                            break;
 
-                    case "most_popular_Games":
-                        feed_url = "https://www.youtube.com/gaming/trending";                    
-                    break;
+                        case "most_popular_Tech":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Tech";
+                            break;
 
-                    case "most_popular_Music":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=music";                    
-                    break;
+                        case "most_popular_Sports":
+                            feed_url = "https://www.youtube.com/channel/UCEgdi0XIXXZ-qJOFPf4JSKw/sportstab?ss=CMcB";
+                            break;
 
-                    case "most_popular_Tech":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Tech";                    
-                    break;
+                        case "most_popular_Film":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=film+and+animation+";
+                            break;
 
-                    case "most_popular_Sports":
-                        feed_url = "https://www.youtube.com/channel/UCEgdi0XIXXZ-qJOFPf4JSKw/sportstab?ss=CMcB";                    
-                    break;
+                        case "most_popular_Entertainment":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=entertainment";
+                            break;
 
-                    case "most_popular_Film":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=film+and+animation+";                    
-                    break;
+                        case "most_popular_Howto":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=How+To";
+                            break;
 
-                    case "most_popular_Entertainment":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=entertainment";                    
-                    break;
+                        case "most_popular_Education":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Education";
+                            break;
 
-                    case "most_popular_Howto":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=How+To";                    
-                    break;
+                        case "most_popular_Animals":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Animals";
+                            break;
 
-                    case "most_popular_Education":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Education";                    
-                    break;
+                        case "most_popular_Comedy":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Comedy";
+                            break;
 
-                    case "most_popular_Animals":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Animals";                    
-                    break;
+                        case "most_popular_Travel":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Travel";
+                            break;
 
-                    case "most_popular_Comedy":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Comedy";                    
-                    break;
+                        case "most_popular_Auto":
+                            feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Auto+and+Vehicles";
+                            break;
 
-                    case "most_popular_Travel":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Travel";                    
-                    break;
+                        default:
+                            feed_url = "https://www.youtube.com/feed/trending?bp=6gQJRkVleHBsb3Jl";
+                            break;
 
-                    case "most_popular_Auto":
-                        feed_url = "ytsearch20:https://www.youtube.com/results?search_query=Auto+and+Vehicles";                    
-                    break;
+                    }
 
-                    default:
-                      feed_url = "https://www.youtube.com/feed/trending?bp=6gQJRkVleHBsb3Jl";
-                    break;
+                    var json = await UseYTDlP($"{feed_url}");
 
-                }
+                    var data = ExtractData(json, request);
 
-                var json = await UseYTDlP($"{feed_url}");
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
-                var data = await ExtractData(json, request);
-
-                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
-
-                var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+                    var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                     <feed xmlns=""http://www.w3.org/2005/Atom""
                         xmlns:gd=""http://schemas.google.com/g/2005""
                         xmlns:openSearch=""http://a9.com/-/spec/opensearch/1.1/""
@@ -272,7 +374,7 @@ namespace Lincon
                         {data.Item1}
                     </feed>";
 
-                                    
+
                     return Results.Content(template, "application/xml"); // broken on firefox 
                 }
                 catch (Exception ex)
@@ -282,8 +384,13 @@ namespace Lincon
                 }
             });
 
-        }
+ 
+            app.MapGet(@"/youtube/v3/activities", () =>
+            {
 
+            });
+
+        }
 
     }
 

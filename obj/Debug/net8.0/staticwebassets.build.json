@@ -1,11 +1,12 @@
 {
   "Version": 1,
-  "Hash": "7tfDLlFCVeG9chiDRfIWG+8+DVZ2nTpq7RrD0LYMqWU=",
+  "Hash": "C8bK+fwUo54JE0E+wvJQctZf/uIILB83NzEzDStd9cI=",
   "Source": "Lincon",
   "BasePath": "_content/Lincon",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
   "DiscoveryPatterns": [],
-  "Assets": []
+  "Assets": [],
+  "Endpoints": []
 }

@@ -4,6 +4,12 @@ using System.Text;
 using System.Text.Json;
 using YoutubeDLSharp;
 using System.Text.RegularExpressions;
+using Player;
+using Google.Protobuf;
+using System.IO;
+using System.Web;
+
+#pragma warning disable CS8619 
 
 namespace Lincon
 {
@@ -15,16 +21,9 @@ namespace Lincon
         {
 
             YoutubeDL ytdlp = new();
-
+            
             HttpClient client = new();
             Dictionary<string, string> videoDict = [];
-
-
-            string ComputeHash(string input)
-            {
-                var hash = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-                return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-            }
 
             async Task<string> UseYTDlP(string url, params string[] args)
             {
@@ -72,7 +71,7 @@ namespace Lincon
                     return "";
 
                 var video_content = await client.GetStringAsync(video.First());
-                
+
                 video_content = string.Join("\n",
                     video_content
                         .Split('\n')
@@ -101,14 +100,8 @@ namespace Lincon
                 return video_content;
             }
 
-            async Task<string> ExtractMuxedUrl(string data)
+            String ExtractMuxedUrl(string data)
             {
-
-                // to shut up warning
-                await Task.Delay(0); // (GOD I HATE ASYNC)
-
-
-                // god I have no idea how syncs work
                 using var res = JsonDocument.Parse(data);
 
                 if (!res.RootElement.TryGetProperty("formats", out var formats))
@@ -129,41 +122,37 @@ namespace Lincon
 
                 Console.WriteLine("\nVideo Url: " + video.First());
 
-                return video.First();
+                return video.First() ?? "";
             }
 
-            app.MapPost("/getURL", async (HttpContext ctx, HttpRequest req) =>
+            Tuple<string, string, string, string, double, string, string> FetchVideoDetails(string data)
             {
-                var json = await new StreamReader(req.Body).ReadToEndAsync();
+                using var res = JsonDocument.Parse(data);
 
-                var res = JsonDocument.Parse(json);
+                var title = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("title").GetString());
+                var uploader = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("uploader").GetString());
 
-                if (!res.RootElement.TryGetProperty("url", out var urlProp))
-                    return Results.BadRequest("Missing 'url'");
+                var id = res.RootElement.GetProperty("id").GetString();
+                var thumbnail = $"https://i.ytimg.com/vi/{id}/hqdefault.jpg";
 
-                var url = urlProp.GetString();
-
-                Console.WriteLine(url);
-
-                if (ctx.Request.Headers.ContainsKey("HLS-Video"))
+                double duration = 0;
+                if (res.RootElement.TryGetProperty("duration", out var durationProp) && durationProp.ValueKind == JsonValueKind.Number)
                 {
-                    var output = await UseYTDlP(url!, "--dump-json");
-                    var hash = ComputeHash(output);
-                    videoDict[hash] = output;
-
-                    _ = Task.Delay(15000).ContinueWith(t =>
-                    {
-                        videoDict.Remove(hash, out string? ignored);
-                    }); // idk we just have to wait 15 secs
-
-                    return Results.Ok(new { url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/getURLFinal/{hash}" });
+                    duration = durationProp.GetDouble();
                 }
-                else
-                {
-                    var audioUrl = await UseYTDlP(url!, "-f", "bestaudio", "-g");
-                    return Results.Ok(new { url = audioUrl.Trim() });
-                }
-            });
+
+                var channel_id = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("channel_id").GetString());
+
+                var view_count = "0";
+
+                var published = res.RootElement.TryGetProperty("published", out var publishedProp) && publishedProp.ValueKind == JsonValueKind.String
+                    ? publishedProp.GetString()
+                    : "1970-01-01T00:00:00.000Z";
+
+                var description = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("description").GetString()) ?? "placeholder";
+
+                return Tuple.Create(title, uploader, description, thumbnail, duration, channel_id, view_count);
+            }
 
             app.MapGet("/getURLFinal/{hash}", (string hash) =>
             {
@@ -184,7 +173,7 @@ namespace Lincon
 
                     if (query == "true")
                     {
-                        var video_url = await ExtractMuxedUrl(json);
+                        var video_url = ExtractMuxedUrl(json);
                         return Results.Redirect(video_url);
                     }
 
@@ -202,22 +191,22 @@ namespace Lincon
                 }
             });
 
-
-            // this the 'real' endpoint YouTube used (good for flash and stuff)
             app.MapGet("/get_video", async (HttpRequest request) =>
             {
                 try
                 {
 
                     string? video_id = System.Security.SecurityElement.Escape(request.Query["video_id"]);
-                    
+
                     string? query = System.Security.SecurityElement.Escape(request.Query["muxed"]);
 
                     var json = await UseYTDlP($"https://youtube.com/watch?v={video_id}", "--dump-json");
 
+                    Console.WriteLine("\nUgggh " + query);
+
                     if (query == "true")
                     {
-                        var video_url = await ExtractMuxedUrl(json);
+                        var video_url = ExtractMuxedUrl(json);
                         return Results.Redirect(video_url);
                     }
 
@@ -234,14 +223,184 @@ namespace Lincon
                     return Results.StatusCode(500);
                 }
             });
+
+            app.MapPost("/youtubei/v1/player", async (HttpRequest request) =>
+            {
+
+                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+
+                string? video_id = "";
+
+                byte[] bodyBytes;
+
+                using (var ms = new MemoryStream())
+                {
+                    await request.Body.CopyToAsync(ms);
+                    bodyBytes = ms.ToArray();
+                }
+
+                var cis = new CodedInputStream(bodyBytes);
+
+                while (!cis.IsAtEnd)
+                {
+                    uint tag = cis.ReadTag();
+                    if (tag == 0) break;
+
+                    int fieldNumber = (int)(tag >> 3);
+
+                    if (fieldNumber == 2)
+                    {
+
+                        video_id = cis.ReadString();
+                        break; 
+                    }
+                    else
+                    {
+
+                        cis.SkipLastField();
+                    }
+                }
+
+                Console.WriteLine($"\nVideo ID: {video_id}");
+
+                if (String.IsNullOrEmpty(video_id))
+                {
+                    return Results.StatusCode(418);
+                }
+
+                var root = new root();
+
+                // ints 
+
+                var playbackInts = new root.Types.playbackInts
+                {
+                    Int1 = 0,
+                    Int9 = 0,
+                    Str31 = "CAESAggB"
+                };
+
+                root.PInts.Add(playbackInts);
+
+                // end 
+
+                // formats
+
+                var formats = new root.Types.playerFormats
+                {
+                    SomeInt = 21540 // idk what this means, doesn't matter much idk (perhaps bitrate /: )
+                };
+
+                var format360p = new root.Types.playerFormats.Types.format
+                {
+                    FormatId = 18,
+                    Url = $"{base_url}/get_video?video_id={video_id}&muxed=true",
+                    MimeType = "video/mp4",
+                    VideoQuality = "360p"
+                };
+
+                formats.NondashFormat.Add(format360p); // non dash = muxed (audio/video one file)
+
+                root.Formats.Add(formats);
+
+
+                // metadata
+
+                var metadata = new root.Types.metadata
+                {
+                    Id = video_id,
+                    Title = "Placeholder",
+                    ChannelId = "8675304",
+                    Description = "Placeholder",
+                    ViewCount = "301",
+                    AuthorName = "Jane Doe"
+                };
+
+                var thumbnailList = new root.Types.metadata.Types.thumbList { };
+
+                var thumbnail = new root.Types.metadata.Types.thumbList.Types.thumb
+                {
+                    Url = $"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                    Width = 480,
+                    Height = 360
+                };
+
+                thumbnailList.Thumbnail.Add(thumbnail);
+
+                metadata.Thumbnails.Add(thumbnailList);
+
+                root.VideoMetadata.Add(metadata);
+
+                // end
+
+                // misc
+
+                root.PbVarious69 = "CAA%3D";
+
+                // end
+            
+                return Results.File(root.ToByteArray(), "application/octet-stream");
+            });
+
+            app.MapGet("/feeds/api/videos/{id}", async (string id, HttpRequest request) =>
+            {
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+
+                    var json = await UseYTDlP($"https://youtube.com/watch?v={id}", "--dump-json");
+
+                    var data = FetchVideoDetails(json);
+
+
+                    var template = $@"<?xml version='1.0' encoding='UTF-8'?>
+                    <entry xmlns:yt='http://www.youtube.com/xml/schemas/2007' 
+                        xmlns:media='http://search.yahoo.com/mrss/' 
+                        xmlns:gd='http://schemas.google.com/g/2005'>
+                      	<id>{base_url}/feeds/api/videos/{id}</id>
+                        <published>2005-04-24T03:31:52.000Z</published>
+                        <updated>2005-04-24T03:31:52.000Z</updated>
+                        <category scheme='http://gdata.youtube.com/schemas/2007/categories.cat' label='Film &amp; Animation' term='Film &amp; Animation'>Film &amp; Animation</category>
+                        <title type='text'>{data.Item1}</title>
+                        <content type='text'>{data.Item3}</content>
+                        <link rel='http://gdata.youtube.com/schemas/2007#video.related' href='{base_url}/feeds/api/videos/{id}/related'/>
+                        <author>
+                            <name>{data.Item2}</name>
+                            <uri>{base_url}/feeds/api/users/{data.Item6}</uri>
+                            <yt:userId>{data.Item6}</yt:userId>
+                        </author>
+                        <gd:comments>
+                            <gd:feedLink href='{base_url}/feeds/api/videos/{id}/comments' countHint='530'/>
+                        </gd:comments>
+                        <media:group>
+                            <media:category label='Film &amp; Animation' scheme='http://gdata.youtube.com/schemas/2007/categories.cat'>Film &amp; Animation</media:category>
+                            <media:thumbnail yt:name='hqdefault' url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='240' width='320' time='00:00:00'/>
+                            <media:thumbnail yt:name='poster' url='http://i.ytimg.com/vi/{id}/0.jpg' height='240' width='320' time='00:00:00'/>
+                            <media:thumbnail yt:name='default' url='http://i.ytimg.com/vi/{id}/0.jpg' height='240' width='320' time='00:00:00'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' isDefault='true' expression='full' duration='{data.Item5}' yt:format='3'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{data.Item5}' yt:format='2'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' expression='full' duration='{data.Item5}' yt:format='8'/>
+                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{data.Item5}' yt:format='9'/>
+                            <media:description type='plain'>{data.Item3}</media:description>
+                            <media:keywords>ben</media:keywords>
+                            <media:player url='http://www.youtube.com/watch?v={id}'/>
+                            <media:credit role='uploader' name='{data.Item6}'>{data.Item6}</media:credit>
+                            <yt:duration seconds='104'/>
+                            <yt:videoid>${id}</yt:videoid>
+                            <yt:userId>{data.Item6}</yt:userId>
+                            <yt:uploaderId>{data.Item6}</yt:uploaderId>
+                        </media:group>
+                        <gd:rating average='5' max='5' min='1' numRaters='611860' rel='http://schemas.google.com/g/2005#overall'/>
+                        <yt:statistics favoriteCount='2447440' viewCount='367116085'/>
+                        <yt:rating numLikes='2447440' numDislikes='17890'/>
+                    </entry>
+                    ";
+
+
+                    return Results.Content(template, "application/xml"); // broken on firefox 
+            });
+
         }
-
-
     }
-
     public static class Extensions
     {
         public static TResult Let<T, TResult>(this T input, Func<T, TResult> func) => func(input);
     }
-
 }

@@ -88,8 +88,28 @@ StandardFeeds.HandleFeed(app);
 // comments
 CommentFeed.HandleFeed(app);
 
+// releated
+RelatedFeed.HandleFeed(app);
+
+// user info 
+UserFeeds.HandleFeed(app);
+
+// user uploads
+UploadsFeed.HandleFeed(app);
+
 // video file/video playback
 GetVideo.HandleVideos(app);
+
+// auth stuff
+AndroidLogin.HandleStuff(app);
+
+// default subs
+DefaultSubscriptionsFeed.HandleFeed(app);
+
+// default rec
+RecommendationsFeed.HandleFeed(app);
+
+// guide
 
 
 app.Run();
