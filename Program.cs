@@ -62,7 +62,7 @@ app.UseSwaggerUi(config =>
 
 // download/update yt-dlp
 
-await YoutubeDLSharp.Utils.DownloadBinaries();
+await YoutubeDLSharp.Utils.DownloadBinaries(true); // set to false so it auto updates, will be a TINY but slower on startup
 
 Console.WriteLine("Welcome to Lincoln!");
 
@@ -94,14 +94,17 @@ RelatedFeed.HandleFeed(app);
 // user info 
 UserFeeds.HandleFeed(app);
 
+// playlists info
+PlaylistInfoFeed.HandleFeed(app);
+
 // user uploads
 UploadsFeed.HandleFeed(app);
 
 // video file/video playback
 GetVideo.HandleVideos(app);
 
-// auth stuff
-AndroidLogin.HandleStuff(app);
+// auth/login stuff
+HandleLogin.HandleStuff(app);
 
 // default subs
 DefaultSubscriptionsFeed.HandleFeed(app);
@@ -109,7 +112,23 @@ DefaultSubscriptionsFeed.HandleFeed(app);
 // default rec
 RecommendationsFeed.HandleFeed(app);
 
-// guide
+// default new subs videos
+NewSubscriptionVideosFeed.HandleFeed(app);
+
+// defaut watch history
+WatchHistoryFeed.HandleFeed(app);
+
+// default favourites feed (aka liked videos)
+FavouritesFeed.HandleFeed(app);
+
+// defaut watch later
+WatchLaterFeed.HandleFeed(app);
+
+// default playlists
+DefaultPlaylists.HandleFeed(app);
+
+// default user interactions
+UserInteractions.HandleFeed(app);
 
 
 app.Run();

@@ -1,15 +1,13 @@
-using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using YoutubeDLSharp;
-using System.Text.RegularExpressions;
 using Player;
 using Google.Protobuf;
-using System.IO;
-using System.Web;
+using System.Text.Json;
+using YoutubeDLSharp.Options;
+using System.Text.RegularExpressions;
 
+#pragma warning disable CS0618 
 #pragma warning disable CS8619 
+#pragma warning disable CS8604
 
 namespace Lincon
 {
@@ -25,89 +23,119 @@ namespace Lincon
             HttpClient client = new();
             Dictionary<string, string> videoDict = [];
 
-            async Task<string> UseYTDlP(string url, params string[] args)
+            async Task<string> UseYTDlP(string url, bool skipDownload, params string[] args)
             {
+                
+                var res = "";
 
-                // todo -> potokens
-                var res = await ytdlp.RunVideoDataFetch(url);
+                var options = new OptionSet {};
 
-                // https://github.com/Bluegrams/YoutubeDLSharp
-                // we need to use .Data lol
+                if (skipDownload == true)
+                {
+                    options = new OptionSet
+                    {
+                        DumpSingleJson = true,
+                        SkipDownload = true,
+                        FlatPlaylist = true,
+                        NoHlsUseMpegts = true,
+                        HlsSplitDiscontinuity = true,
+                        Referer = "https://youtube.com",
+                        HlsPreferNative = true
+                    };
 
-                return res.Data.ToString();
+                    var skiped_res = await ytdlp.RunVideoDataFetch(url, overrideOptions: options);
+                    res = skiped_res.Data.ToString();
+                }
+                else
+                {
+                    options = new OptionSet
+                    {
+                        NoHlsUseMpegts = true
+                    };
+
+                    var unskiped_res = await ytdlp.RunVideoDataFetch(url, overrideOptions: options);
+                    res = unskiped_res.Data.ToString();
+                }
+
+                return res;
             }
 
-            async Task<string> ExtractManifest(string data)
+            async Task<(string, bool)> ExtractManifest(string data)
             {
-
-                // god I have no idea how syncs work
-
                 using var res = JsonDocument.Parse(data);
-
                 if (!res.RootElement.TryGetProperty("formats", out var formats))
-                    return "";
+                    return ("", false);
 
-                Console.WriteLine("(HLS) Response For Formats " + (formats));
-
-                // video (turns out you DO not need to combine em)
-                // also it doesn't really matter which one you grab this is just left over code
-                // all manifest_url seem to have the same stuff in em, but if it aint broke dont fix
-                var video = formats.EnumerateArray()
+                var manifest_urls = formats.EnumerateArray()
                     .Where(f =>
-                        f.TryGetProperty("protocol", out var protocol) &&
-                        protocol.GetString()?.Contains("m3u8") == true &&
-                        f.TryGetProperty("ext", out var ext) &&
-                        ext.GetString()?.Equals("mp4", StringComparison.OrdinalIgnoreCase) == true &&
-                        f.TryGetProperty("vcodec", out var vCodec) &&
-                        vCodec.GetString()?.StartsWith("avc1") == true
-                    )
+                        f.TryGetProperty("protocol", out var p) && p.GetString()?.Contains("m3u8") == true &&
+                        f.TryGetProperty("ext", out var e) && e.GetString()?.Equals("mp4", StringComparison.OrdinalIgnoreCase) == true &&
+                        f.TryGetProperty("vcodec", out var v) && v.GetString()?.StartsWith("avc1") == true)
                     .Select(f => f.GetProperty("manifest_url").GetString())
                     .Where(url => !string.IsNullOrWhiteSpace(url))
                     .Distinct()
                     .ToList();
 
+                foreach (var manifestUrl in manifest_urls)
+                {
+                    try
+                    {
+                        const string ua = "com.google.ios.youtube/20.14.2 (iPhone12,1; U; CPU iOS 18_3_2 like Mac OS X; en_US)";
+                        const string refer = "https://www.youtube.com/";
 
-                if (video.Count == 0)
-                    return "";
+                        var head_req = new HttpRequestMessage(HttpMethod.Head, manifestUrl);
+                        head_req.Headers.UserAgent.ParseAdd(ua);
+                        head_req.Headers.Referrer = new Uri(refer);
+                        
+                        if ((await client.SendAsync(head_req)).StatusCode == System.Net.HttpStatusCode.Forbidden)
+                            continue;
 
-                var video_content = await client.GetStringAsync(video.First());
+                        var manifest_req = new HttpRequestMessage(HttpMethod.Get, manifestUrl);
+                        manifest_req.Headers.UserAgent.ParseAdd(ua);
+                        var lines = (await (await client.SendAsync(manifest_req)).Content.ReadAsStringAsync())
+                                    .Split('\n')
+                                    .Where((l, i) => !l.Contains("vp09") && !l.Contains("dubbed-auto"))
+                                    .ToList();
 
-                video_content = string.Join("\n",
-                    video_content
-                        .Split('\n')
-                        .ToList()
-                        .Let(lines =>
+                        foreach (var line in lines.Where(l => l.StartsWith("#EXT-X-MEDIA") && l.Contains("TYPE=AUDIO")))
                         {
-                            var result = new List<string>();
-                            for (int i = 0; i < lines.Count; i++)
-                            {
-                                if (lines[i].Contains("vp09") || lines[i].Contains("vp09"))
-                                {
-                                    i++;
-                                    continue;
-                                }
+                            var match = Regex.Match(line, "URI=\"(.*?)\"");
+                            if (!match.Success) continue;
 
-                                result.Add(lines[i]);
-                            }
+                            var audio_url = new Uri(new Uri(manifestUrl), match.Groups[1].Value).ToString();
 
-                            return result;
-                        })
-                );
+                            var audio_req = new HttpRequestMessage(HttpMethod.Get, audio_url);
+                            audio_req.Headers.UserAgent.ParseAdd(ua);
+                            audio_req.Headers.Referrer = new Uri(refer);
 
+                            var audio_lines = (await (await client.SendAsync(audio_req)).Content.ReadAsStringAsync()).Split('\n');
 
-                Console.WriteLine("\nUrl " + video.First());
+                            var seg = audio_lines.FirstOrDefault(l => !l.StartsWith("#") && (l.EndsWith(".ts") || l.EndsWith(".m4s") || l.EndsWith(".seg")));
+                            if (seg == null) continue;
 
-                return video_content;
+                            var seg_url = new Uri(new Uri(audio_url), seg).ToString();
+
+                            var seg_req = new HttpRequestMessage(HttpMethod.Head, seg_url);
+                            seg_req.Headers.UserAgent.ParseAdd(ua);
+
+                            if ((await client.SendAsync(seg_req)).StatusCode != System.Net.HttpStatusCode.Forbidden)
+                                return (string.Join("\n", lines), false);
+                        }
+                        
+                    }
+                    catch { continue; }
+                }
+
+                var muxed = ExtractMuxedUrl(data);
+                return muxed != null ? (muxed, true) : ("", false);
             }
 
-            String ExtractMuxedUrl(string data)
+            string ExtractMuxedUrl(string data)
             {
                 using var res = JsonDocument.Parse(data);
 
                 if (!res.RootElement.TryGetProperty("formats", out var formats))
                     return "";
-
-                Console.WriteLine("(Muxed) Response For Formats " + (formats));
 
                 var video = formats.EnumerateArray()
                     .Where(f =>
@@ -119,13 +147,10 @@ namespace Lincon
                     .Distinct()
                     .ToList();
 
-
-                Console.WriteLine("\nVideo Url: " + video.First());
-
                 return video.First() ?? "";
             }
 
-            Tuple<string, string, string, string, double, string, string> FetchVideoDetails(string data)
+            Tuple<string, string, string, string, double, string, Tuple<string, string, string, string, string>> FetchVideoDetails(string data)
             {
                 using var res = JsonDocument.Parse(data);
 
@@ -135,7 +160,7 @@ namespace Lincon
                 var id = res.RootElement.GetProperty("id").GetString();
                 var thumbnail = $"https://i.ytimg.com/vi/{id}/hqdefault.jpg";
 
-                double duration = 0;
+                double duration = 0; // strings are nicer to use ?? with, but this is the only entry that HAS to be a number type
                 if (res.RootElement.TryGetProperty("duration", out var durationProp) && durationProp.ValueKind == JsonValueKind.Number)
                 {
                     duration = durationProp.GetDouble();
@@ -143,15 +168,24 @@ namespace Lincon
 
                 var channel_id = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("channel_id").GetString());
 
-                var view_count = "0";
-
-                var published = res.RootElement.TryGetProperty("published", out var publishedProp) && publishedProp.ValueKind == JsonValueKind.String
-                    ? publishedProp.GetString()
-                    : "1970-01-01T00:00:00.000Z";
-
                 var description = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("description").GetString()) ?? "placeholder";
 
-                return Tuple.Create(title, uploader, description, thumbnail, duration, channel_id, view_count);
+                var view_count = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("view_count").GetInt32().ToString()) ?? "301"; 
+
+                var like_count = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("like_count").GetInt32().ToString()) ?? "1809"; // (Lincon's birthyear)
+                
+                var category = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("categories")[0].GetString()) ?? System.Security.SecurityElement.Escape("Film & Animation");
+
+                var comment_count = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("comment_count").GetInt32().ToString()) ?? "0";
+
+                var published = "2013-01-01T00:00:00.000Z";
+                if (res.RootElement.TryGetProperty("timestamp", out var timestamp))
+                {
+                    double timestamp_double = int.Parse(timestamp.ToString());
+                    published = DateTimeOffset.UnixEpoch.AddSeconds(timestamp_double).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                return Tuple.Create(title, uploader, description, thumbnail, duration, channel_id, Tuple.Create(view_count, like_count, category, comment_count, published)); // tuple secptions (7 items max ): )
             }
 
             app.MapGet("/getURLFinal/{hash}", (string hash) =>
@@ -160,29 +194,33 @@ namespace Lincon
                     return Results.Ok(new { video_url = value });
 
                 return Results.NotFound("Video not found");
-            });
+            }).ExcludeFromDescription();
 
             app.MapGet("/getvideo/{videoId}", async (string videoId, HttpRequest request) =>
             {
                 try
                 {
-
                     string? query = System.Security.SecurityElement.Escape(request.Query["muxed"]);
 
-                    var json = await UseYTDlP($"https://youtube.com/watch?v={videoId}", "--dump-json");
+                    var json = await UseYTDlP($"https://youtube.com/watch?v={videoId}", false, "--dump-json");
 
                     if (query == "true")
                     {
                         var video_url = ExtractMuxedUrl(json);
-                        return Results.Redirect(video_url);
+                        return Results.Redirect(video_url); // easy as pie
                     }
 
                     var hls = await ExtractManifest(json);
 
-                    if (string.IsNullOrWhiteSpace(hls))
-                        return Results.NotFound("Couldn't find a HLS stream found");
+                    if (string.IsNullOrWhiteSpace(hls.Item1))
+                        return Results.NotFound("No stream found");
 
-                    return Results.Text(hls, "application/vnd.apple.mpegurl");
+                    Console.WriteLine();
+
+                    if (hls.Item2 == true)
+                        return Results.Redirect(hls.Item1);
+
+                    return Results.Text(hls.Item1, "application/vnd.apple.mpegurl");
                 }
                 catch (Exception ex)
                 {
@@ -200,22 +238,27 @@ namespace Lincon
 
                     string? query = System.Security.SecurityElement.Escape(request.Query["muxed"]);
 
-                    var json = await UseYTDlP($"https://youtube.com/watch?v={video_id}", "--dump-json");
-
-                    Console.WriteLine("\nUgggh " + query);
+                    var json = await UseYTDlP($"https://youtube.com/watch?v={video_id}", false, "--dump-json");
 
                     if (query == "true")
                     {
                         var video_url = ExtractMuxedUrl(json);
-                        return Results.Redirect(video_url);
+
+                        if (string.IsNullOrWhiteSpace(video_url))
+                            return Results.NotFound("No muxed stream found");
+
+                        return Results.Redirect(video_url); // easy as pie
                     }
 
                     var hls = await ExtractManifest(json);
 
-                    if (string.IsNullOrWhiteSpace(hls))
-                        return Results.NotFound("Couldn't find a HLS stream found");
+                    if (string.IsNullOrWhiteSpace(hls.Item1))
+                        return Results.NotFound("No stream found");
 
-                    return Results.Text(hls, "application/vnd.apple.mpegurl");
+                    if (hls.Item2 == true)
+                        return Results.Redirect(hls.Item1);
+                        
+                    return Results.Text(hls.Item1, "application/vnd.apple.mpegurl");
                 }
                 catch (Exception ex)
                 {
@@ -229,9 +272,13 @@ namespace Lincon
 
                 var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
+                var root = new root(); 
+
                 string? video_id = "";
 
-                byte[] bodyBytes;
+                // getting the video id from protobuff request
+
+                byte[] bodyBytes; // we need the body as an array of bytes
 
                 using (var ms = new MemoryStream())
                 {
@@ -239,36 +286,43 @@ namespace Lincon
                     bodyBytes = ms.ToArray();
                 }
 
-                var cis = new CodedInputStream(bodyBytes);
-
-                while (!cis.IsAtEnd)
+                var cis = new CodedInputStream(bodyBytes); // still cis tho
+                while (!cis.IsAtEnd) // just loop through untuil the seocond item
                 {
                     uint tag = cis.ReadTag();
                     if (tag == 0) break;
 
                     int fieldNumber = (int)(tag >> 3);
-
-                    if (fieldNumber == 2)
+                    if (fieldNumber == 2) // second field is the video is in the request (mitmproxy viewed)
                     {
-
                         video_id = cis.ReadString();
-                        break; 
+                        break;
                     }
                     else
                     {
-
                         cis.SkipLastField();
                     }
+                    
                 }
 
-                Console.WriteLine($"\nVideo ID: {video_id}");
+                // this isn't the 'proper way' but I couldn't find much on the proper way to do it 
+                // so this works since we just need the video id really
 
                 if (String.IsNullOrEmpty(video_id))
                 {
-                    return Results.StatusCode(418);
+                    // this is just to make it easy to make POST requests for debugging
+                    // I do not think any YouTube clients ever used ?video_id= in this endpoint 
+                    if (!String.IsNullOrEmpty(System.Security.SecurityElement.Escape(request.Query["video_id"])))
+                    {
+                        video_id = System.Security.SecurityElement.Escape(request.Query["video_id"]);
+                    }
+                    else
+                    {
+                        return Results.StatusCode(418);
+                    }
                 }
 
-                var root = new root();
+                // end
 
                 // ints 
 
@@ -345,19 +399,32 @@ namespace Lincon
             {
                     var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
-                    var json = await UseYTDlP($"https://youtube.com/watch?v={id}", "--dump-json");
+                    // janky fix for android rel vids
+                    if (id.StartsWith("%24", StringComparison.OrdinalIgnoreCase))
+                    id = id.Substring(3);
+                        
+                    if (id.StartsWith("$"))
+                        id = id.Substring(1);
+        
+                    var json = await UseYTDlP($"https://youtube.com/watch?v={id}", true, "--dump-json");
 
-                    var data = FetchVideoDetails(json);
+                    var data = Tuple.Create("", "", "", "", (double) 0, "", Tuple.Create("", "", "", "", ""));
 
-
+                    try{
+                        data = FetchVideoDetails(json);
+                    } catch(Exception ex) {
+                        Console.WriteLine("\nException For /feed/api/videos/{id}" + ex);
+                        return Results.StatusCode(500);
+                    }
+                   
                     var template = $@"<?xml version='1.0' encoding='UTF-8'?>
                     <entry xmlns:yt='http://www.youtube.com/xml/schemas/2007' 
                         xmlns:media='http://search.yahoo.com/mrss/' 
                         xmlns:gd='http://schemas.google.com/g/2005'>
                       	<id>{base_url}/feeds/api/videos/{id}</id>
-                        <published>2005-04-24T03:31:52.000Z</published>
-                        <updated>2005-04-24T03:31:52.000Z</updated>
-                        <category scheme='http://gdata.youtube.com/schemas/2007/categories.cat' label='Film &amp; Animation' term='Film &amp; Animation'>Film &amp; Animation</category>
+                        <published>{data.Item7.Item5}</published>
+                        <updated>{data.Item7.Item5}</updated>
+                        <category scheme='http://gdata.youtube.com/schemas/2007/categories.cat' label='{data.Item7.Item3}' term='{data.Item7.Item3}'>{data.Item7.Item3}</category>
                         <title type='text'>{data.Item1}</title>
                         <content type='text'>{data.Item3}</content>
                         <link rel='http://gdata.youtube.com/schemas/2007#video.related' href='{base_url}/feeds/api/videos/{id}/related'/>
@@ -367,15 +434,16 @@ namespace Lincon
                             <yt:userId>{data.Item6}</yt:userId>
                         </author>
                         <gd:comments>
-                            <gd:feedLink href='{base_url}/feeds/api/videos/{id}/comments' countHint='530'/>
+                            <gd:feedLink href='{base_url}/feeds/api/videos/{id}/comments' countHint='{data.Item7.Item4}'/>
                         </gd:comments>
                         <media:group>
-                            <media:category label='Film &amp; Animation' scheme='http://gdata.youtube.com/schemas/2007/categories.cat'>Film &amp; Animation</media:category>
+                            <media:category label='{data.Item7.Item3}' scheme='http://gdata.youtube.com/schemas/2007/categories.cat'>{data.Item7.Item3}</media:category>
                             <media:thumbnail yt:name='hqdefault' url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='240' width='320' time='00:00:00'/>
                             <media:thumbnail yt:name='poster' url='http://i.ytimg.com/vi/{id}/0.jpg' height='240' width='320' time='00:00:00'/>
                             <media:thumbnail yt:name='default' url='http://i.ytimg.com/vi/{id}/0.jpg' height='240' width='320' time='00:00:00'/>
                             <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' isDefault='true' expression='full' duration='{data.Item5}' yt:format='3'/>
                             <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{data.Item5}' yt:format='2'/>
+                            <media:content url='{base_url}/getvideo/{id}?muxed=true' type='video/mp4' medium='video' expression='full' duration='{data.Item5}' yt:format='5'/>
                             <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' expression='full' duration='{data.Item5}' yt:format='8'/>
                             <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{data.Item5}' yt:format='9'/>
                             <media:description type='plain'>{data.Item3}</media:description>
@@ -388,11 +456,10 @@ namespace Lincon
                             <yt:uploaderId>{data.Item6}</yt:uploaderId>
                         </media:group>
                         <gd:rating average='5' max='5' min='1' numRaters='611860' rel='http://schemas.google.com/g/2005#overall'/>
-                        <yt:statistics favoriteCount='2447440' viewCount='367116085'/>
-                        <yt:rating numLikes='2447440' numDislikes='17890'/>
+                        <yt:statistics favoriteCount='{data.Item7.Item2}' viewCount='{data.Item7.Item1}'/>
+                        <yt:rating numLikes='{data.Item7.Item2}' numDislikes='12'/>
                     </entry>
                     ";
-
 
                     return Results.Content(template, "application/xml"); // broken on firefox 
             });

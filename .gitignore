@@ -10,3 +10,6 @@ obj/
 *.dll
 *.exe
 *.pdb
+bin/
+obj/
+ffprobe

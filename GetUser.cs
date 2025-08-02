@@ -3,7 +3,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Lincon.Enums;
 using Namotion.Reflection;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Options;
@@ -12,13 +11,12 @@ using YoutubeDLSharp.Options;
 #pragma warning disable CS8602
 #pragma warning disable CS8603 
 #pragma warning disable CS8604 
-
+#pragma warning disable CS0618 
 namespace Lincon
 {
 
     public static class UserFeeds
     {
-        [Obsolete]
         public static void HandleFeed(WebApplication app)
         {
 
@@ -46,12 +44,10 @@ namespace Lincon
                     return "";
                 }
 
-                Console.WriteLine("\nRes:\n" + res.Data);
-
                 return res.Data.ToString();
             }
 
-            Tuple<string, string, string, string, string, string, string> ExtractData(string data, FeedType feedType, HttpRequest request)
+            Tuple<string, string, string, string, string, string, string> ExtractData(string data, HttpRequest request)
             {
                 string id = "", channel_name = "", title = "", description = "", channel_follower_count = "", avatar_url = "", banner_url = "";
 
@@ -94,11 +90,9 @@ namespace Lincon
                         return Results.StatusCode(500);
                     }
 
-                    Console.WriteLine("\nChannel ID: " + channel_id);
-
                     var json = await UseYTDlP($"https://www.youtube.com/channel/{channel_id}");
 
-                    var data = ExtractData(json, FeedType.XML, request);
+                    var data = ExtractData(json, request);
 
                     var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
@@ -117,18 +111,24 @@ namespace Lincon
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/users/{data.Item1}""/>
                         <link rel=""alternate"" type=""text/html"" href=""https://www.youtube.com/user/{data.Item1}""/>
                         <author>
-                            <name>{data.Item2}</name>
+                            <name>{data.Item1}</name>
                             <uri>{base_url}/feeds/api/users/{data.Item1}</uri>
                         </author>
                         <yt:age>1</yt:age> 
                         <yt:description></yt:description> 
                         <yt:channelId>{channel_id}</yt:channelId>
                         <gd:feedLink rel=""http://gdata.youtube.com/schemas/2007#user.uploads"" href=""{base_url}/feeds/api/users/{data.Item1}/uploads"" countHint=""0""/>
+                        <gd:feedLink rel=""http://gdata.youtube.com/schemas/2007#user.activities"" href=""{base_url}/feeds/api/users/{data.Item1}/activities"" countHint=""0""/>
+                        <gd:feedLink rel=""http://gdata.youtube.com/schemas/2007#user.playlists"" href=""{base_url}/feeds/api/users/{data.Item1}/playlists"" countHint=""0""/>
+                        <gd:feedLink rel=""http://gdata.youtube.com/schemas/2007#user.subscriptions"" href=""{base_url}/feeds/api/users/{data.Item1}/subscriptions"" countHint=""0""/>
+                        <gd:feedLink rel=""http://gdata.youtube.com/schemas/2007#user.favorites"" href=""{base_url}/feeds/api/users/{data.Item1}/favorites"" countHint=""0""/>
+                        <gd:feedLink rel=""http://gdata.youtube.com/schemas/2007#user.contacts"" href=""{base_url}/feeds/api/users/{data.Item1}/contacts"" countHint=""0""/>
                         <yt:statistics lastWebAccess=""{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ}"" subscriberCount=""{data.Item6}"" videoWatchCount=""0"" viewCount=""0"" totalUploadViews=""0""/>
-                        <gd:feedLink rel='/schemas/2007#channel.content' href='/feeds/api/users/webauditors/uploads?v=2' countHint='0'/>
+                        <gd:feedLink rel=""http://gdata.youtube.com/schemas/2007#channel.content"" href=""{base_url}/feeds/api/users/webauditors/uploads?v=2"" countHint=""0""/>
                         <media:thumbnail url=""{data.Item4}""/>
-                        <yt:username>{data.Item2}</yt:username>
+                        <yt:username>{data.Item1}</yt:username>
                     </entry>";
+
 
                     return Results.Content(template, "application/xml"); // broken on firefox 
                 }
@@ -140,52 +140,100 @@ namespace Lincon
             });
 
             app.MapGet(@"/feeds/api/channels/{channel_id}", async (string channel_id, HttpRequest request) => // needs to be ?q at some point for real hardware
-             {
-                 try
-                 {
+            {
+                try
+                {
 
-                     if (String.IsNullOrEmpty(channel_id))
-                     {
-                         return Results.StatusCode(500);
-                     }
+                    if (String.IsNullOrEmpty(channel_id))
+                    {
+                        return Results.StatusCode(500);
+                    }
 
-                     Console.WriteLine("\nChannel ID: " + channel_id);
+                    var json = await UseYTDlP($"https://www.youtube.com/channel/{channel_id}");
 
-                     var json = await UseYTDlP($"https://www.youtube.com/channel/{channel_id}");
+                    var data = ExtractData(json, request);
 
-                     var data = ExtractData(json, FeedType.XML, request);
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
-                     var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
-
-                     var template = $@"<entry gd:etag='W/&quot;Ck8GRH47eCp7I2A9XRdTGEQ.&quot;'>
-                    <id>tag:youtube.com,2008:channel:{data.Item1}</id>
-                    <updated>{DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")}</updated>
-                    <category scheme='http://schemas.google.com/g/2005#kind' term='/schemas/2007#channel'/>
-                    <title>{data.Item2}</title>
-                    <summary>{data.Item5}</summary>
-                    <link rel='/schemas/2007#featured-video' type='application/atom+xml' href='/feeds/api/videos/YM582qGZHLI?v=2'/>
-                    <link rel='alternate' type='text/html' href='https://www.youtube.com/channel/{data.Item1}'/>
-                    <link rel='self' type='application/atom+xml' href='/feeds/api/channels/{data.Item1}?v=2'/>
-                    <author>
-                        <name>{data.Item2}</name>
-                        <uri>/feeds/api/users/webauditors</uri>
-                        <yt:userId>{data.Item1}</yt:userId>
-                    </author>
-                    <yt:channelId>{data.Item1}</yt:channelId>
-                    <yt:channelStatistics subscriberCount='{data.Item6}' viewCount='0'/>
-                    <gd:feedLink rel='/schemas/2007#channel.content' href='/feeds/api/users/webauditors/uploads?v=2' countHint='0'/>
-                    <media:thumbnail url='{data.Item4}'/>
+                    var template = $@"<entry gd:etag='W/&quot;Ck8GRH47eCp7I2A9XRdTGEQ.&quot;'>
+                        <id>tag:youtube.com,2008:channel:{data.Item1}</id>
+                        <updated>{DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")}</updated>
+                        <category scheme='http://schemas.google.com/g/2005#kind' term='/schemas/2007#channel'/>
+                        <title>{data.Item2}</title>
+                        <summary>{data.Item5}</summary>
+                        <link rel='/schemas/2007#featured-video' type='application/atom+xml' href='/feeds/api/videos/YM582qGZHLI?v=2'/>
+                        <link rel='alternate' type='text/html' href='https://www.youtube.com/channel/{data.Item1}'/>
+                        <link rel='self' type='application/atom+xml' href='/feeds/api/channels/{data.Item1}?v=2'/>
+                        <author>
+                            <name>{data.Item1}</name>
+                            <uri>/feeds/api/users/webauditors</uri>
+                            <yt:userId>{data.Item1}</yt:userId>
+                        </author>
+                        <yt:channelId>{data.Item1}</yt:channelId>
+                        <yt:channelStatistics subscriberCount='{data.Item6}' viewCount='0'/>
+                        <gd:feedLink rel='/schemas/2007#channel.content' href='/feeds/api/users/webauditors/uploads?v=2' countHint='0'/>
+                        <media:thumbnail url='{data.Item4}'/>
                     </entry>";
 
-                     return Results.Content(template, "application/xml"); // broken on firefox 
-                 }
-                 catch (Exception ex)
-                 {
-                     Console.Error.WriteLine(ex);
-                     return Results.StatusCode(500);
-                 }
-             });
+                    return Results.Content(template, "application/xml"); // broken on firefox 
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex);
+                    return Results.StatusCode(500);
+                }
+            });
 
+            app.MapGet(@"/feeds/api/partners/{channel_id}/branding/default", async (string channel_id, HttpRequest request) => // needs to be ?q at some point for real hardware
+            {
+                try
+                {
+
+                    if (String.IsNullOrEmpty(channel_id))
+                    {
+                        return Results.StatusCode(500);
+                    }
+
+                    var json = await UseYTDlP($"https://www.youtube.com/channel/{channel_id}");
+
+                    var data = ExtractData(json, request);
+
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+
+                    var template = $@"<?xml version='1.0' encoding='UTF-8'?>
+                    <entry xmlns='http://www.w3.org/2005/Atom'
+                        xmlns:app='http://www.w3.org/2007/app'
+                        xmlns:gd='http://schemas.google.com/g/2005'
+                        xmlns:yt='http://gdata.youtube.com/schemas/2007'
+                        gd:etag='W/""D0IDR347eCp7ImA9WxBbGU4.""'>
+                    <id>tag:youtube.com,2008:partner:USERNAME:branding:default</id>
+                    <published>2010-03-18T18:06:16.000Z</published>
+                    <updated>2010-03-18T18:06:16.000Z</updated>
+                    <app:edited>2010-03-18T18:06:16.000Z</app:edited>
+                    <link rel='self' type='application/atom+xml'
+                        href='http://gdata.youtube.com/feeds/api/partners/USERNAME/branding/default?v=2'/>
+                    <link rel='edit' type='application/atom+xml'
+                        href='http://gdata.youtube.com/feeds/api/partners/USERNAME/branding/default?v=2'/>
+                    <yt:option name='channel.global.title.string'>My title</yt:option>
+                    <yt:option name='channel.global.description.string'>About my channel.</yt:option>
+                    <yt:option name='channel.global.keywords.string'>some,channel,tags</yt:option>
+                    <yt:option name='channel.background.image.url'>{data.Item6}</yt:option>
+                    <yt:option name='channel.banner.image_height.int'>150</yt:option>
+                    </entry>";
+
+
+                    return Results.Content(template, "application/xml"); // broken on firefox 
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex);
+                    return Results.StatusCode(500);
+                }
+            });
+
+            // this is used by newer IOS clients (the user doesn't notice)
+            // 1.00 to 1.1 versions do not use this 
+            // and to pick between accounts on android
             app.MapGet(@"/feeds/api/users", async (HttpRequest request) =>
             {
                 try
@@ -195,29 +243,16 @@ namespace Lincon
 
                     string? device_id = null;
 
-                    if (request.Headers.TryGetValue("X-GData-Device", out var deviceHeaderValues))
-                    {
-                        var deviceHeader = deviceHeaderValues.ToString();
-                        var prefix = "device-id=\"";
-                        var startIndex = deviceHeader.IndexOf(prefix);
-                        if (startIndex >= 0)
-                        {
-                            startIndex += prefix.Length;
-                            var endIndex = deviceHeader.IndexOf("\"", startIndex);
-                            if (endIndex > startIndex)
-                            {
-                                device_id = deviceHeader.Substring(startIndex, endIndex - startIndex);
-                            }
-                        }
-                    }
-                    else
+                    device_id = HandleLogin.ExtractDeviceIDFromRequest(request);
+                    
+                    if (String.IsNullOrEmpty(device_id))
                     {
                         return Results.Problem("You must link your android device 3:", statusCode: 403);
                     }
 
-                    var access_token = await AndroidLogin.GetValidAccessTokenAsync(device_id);
+                    var access_token = await HandleLogin.GetValidAccessTokenAsync(device_id);
 
-                    var login_data = await AndroidLogin.GetLoggedInAccountInfoAsync(access_token);
+                    var login_data = await HandleLogin.GetLoggedInAccountInfoAsync(access_token);
 
                     // YOU NEED TWO ENTRIES (otherwise the app will crash)
 
@@ -301,34 +336,21 @@ namespace Lincon
                 try
                 {
 
-                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
                     string? device_id = null;
 
-                    if (request.Headers.TryGetValue("X-GData-Device", out var deviceHeaderValues))
-                    {
-                        var deviceHeader = deviceHeaderValues.ToString();
-                        var prefix = "device-id=\"";
-                        var startIndex = deviceHeader.IndexOf(prefix);
-                        if (startIndex >= 0)
-                        {
-                            startIndex += prefix.Length;
-                            var endIndex = deviceHeader.IndexOf("\"", startIndex);
-                            if (endIndex > startIndex)
-                            {
-                                device_id = deviceHeader.Substring(startIndex, endIndex - startIndex);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        return Results.Problem("You must link your android device", statusCode: 403);
-                    }
+                    device_id = HandleLogin.ExtractDeviceIDFromRequest(request);
+ 
+                    if (string.IsNullOrEmpty(device_id))
+                        return Results.Problem("Invalid device id header", statusCode: 403);
+    
 
-                    var access_token = await AndroidLogin.GetValidAccessTokenAsync(device_id);
+                    var access_token = await HandleLogin.GetValidAccessTokenAsync(device_id);
 
-                    Console.WriteLine("\nAccess Token: " + access_token);
+                    var login_data = await HandleLogin.GetLoggedInAccountInfoAsync(access_token);
 
-                    var login_data = await AndroidLogin.GetLoggedInAccountInfoAsync(access_token);
+                    Console.WriteLine("\nData: " + login_data.ToString());
+
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
                     var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                     <entry

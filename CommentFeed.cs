@@ -21,35 +21,26 @@ namespace Lincon
             HttpClient client = new();
             Dictionary<string, string> videoDict = [];
 
-            
+
             async Task<string> UseYTDlP(string url)
-            {     
+            {
                 // WE WILL NEED MORE OPTIONS
                 // youtube:search: [youtube] YouTube search; "ytsearch:" prefix (e.g. "ytsearch:running tortoise")
-                            
+
                 var options = new OptionSet
                 {
                     DumpSingleJson = true,
                     SkipDownload = true,
                     FlatPlaylist = true,
-                    Verbose = true,
+                    WriteComments = true,
                     ExtractorArgs = new[]
                     {
-                        "youtube:max_comments=20,comment_sort=newest"
-                    },
-                    WriteComments = true
+                        "youtube:max_comments=25"
+                    }
                 };
-                
+
                 var res = await ytdlp.RunVideoDataFetch(url, overrideOptions: options);
-
-                Console.WriteLine("\nRes:\n" + res.Data);
-                    
-                // still very cool we do not need to deal with the innertube directly
-                // wish I would have known about this earliler lol
-
-                // https://github.com/Bluegrams/YoutubeDLSharp
-                // we need to use .Data lol
-
+                
                 return res.Data.ToString();
             }
 
@@ -66,8 +57,9 @@ namespace Lincon
 
                 // yeah this pretty much a copy and past from the search feed
 
-                foreach(var result in comments.EnumerateArray()) {
-                    
+                foreach (var result in comments.EnumerateArray())
+                {
+
                     var id = System.Security.SecurityElement.Escape(result.GetProperty("id").ToString());
                     var text = System.Security.SecurityElement.Escape(result.GetProperty("text").ToString());
                     var uploader = System.Security.SecurityElement.Escape(result.GetProperty("author").ToString());
@@ -107,27 +99,26 @@ namespace Lincon
                 return (string.Join("\n", combined), comments.EnumerateArray().Count());
             }
 
-            app.MapGet(@"/api/videos/{video_id}/comments", async (string video_id, HttpRequest request) => 
+            app.MapGet(@"/api/videos/{video_id}/comments", async (string video_id, HttpRequest request) =>
             {
                 try
                 {
                     video_id = System.Security.SecurityElement.Escape(video_id);
                     // I forgot how to use ? : thingy so I am just doing a if, feel free to change
-                    if(String.IsNullOrEmpty(video_id)) {
-                    return Results.StatusCode(500);
-                }
+                    if (String.IsNullOrEmpty(video_id))
+                    {
+                        return Results.StatusCode(500);
+                    }
 
-                Console.WriteLine("\nVideo Id: " + video_id);
+                    var json = await UseYTDlP("http://youtube.com/watch?v=" + video_id);
 
-                var json = await UseYTDlP("http://youtube.com/watch?v=" + video_id);
+                    var data = await ExtractData(json, video_id, request);
 
-                var data = await ExtractData(json, video_id, request);
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
-                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+                    var continuation = "todo";
 
-                var continuation = "todo";
-
-                var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+                    var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                     <feed xmlns=""http://www.w3.org/2005/Atom""
                         xmlns:gd=""http://schemas.google.com/g/2005""
                         xmlns:openSearch=""http://a9.com/-/spec/opensearch/1.1/""
@@ -143,9 +134,9 @@ namespace Lincon
                         <link rel=""http://schemas.google.com/g/2005#batch"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels/batch?v=2""/>
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=webauditors&amp;start-index=1&amp;max-results=1&amp;v=2""/>
                         <link rel=""service"" type=""application/atomsvc+xml"" href=""{base_url}/feeds/api/channels?alt=atom-service&amp;v=2""/>
-                        {(continuation != null 
-                            ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>" 
-                            : "")}
+                        {(continuation != null
+                                ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>"
+                                : "")}
                         <author>
                             <name>YouTube</name>
                             <uri>http://www.youtube.com/</uri>
@@ -168,27 +159,26 @@ namespace Lincon
 
 
             // yeah login's weird for some reason they changed it up
-            app.MapGet(@"/feeds/api/videos/{video_id}/comments", async (string video_id, HttpRequest request) => 
+            app.MapGet(@"/feeds/api/videos/{video_id}/comments", async (string video_id, HttpRequest request) =>
             {
                 try
                 {
                     video_id = System.Security.SecurityElement.Escape(video_id);
                     // I forgot how to use ? : thingy so I am just doing a if, feel free to change
-                    if(String.IsNullOrEmpty(video_id)) {
-                    return Results.StatusCode(500);
-                }
+                    if (String.IsNullOrEmpty(video_id))
+                    {
+                        return Results.StatusCode(500);
+                    }
 
-                Console.WriteLine("\nVideo Id: " + video_id);
+                    var json = await UseYTDlP("http://youtube.com/watch?v=" + video_id);
 
-                var json = await UseYTDlP("http://youtube.com/watch?v=" + video_id);
+                    var data = await ExtractData(json, video_id, request);
 
-                var data = await ExtractData(json, video_id, request);
+                    var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
-                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+                    var continuation = "todo";
 
-                var continuation = "todo";
-
-                var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+                    var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                     <feed xmlns=""http://www.w3.org/2005/Atom""
                         xmlns:gd=""http://schemas.google.com/g/2005""
                         xmlns:openSearch=""http://a9.com/-/spec/opensearch/1.1/""
@@ -204,9 +194,9 @@ namespace Lincon
                         <link rel=""http://schemas.google.com/g/2005#batch"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels/batch?v=2""/>
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=webauditors&amp;start-index=1&amp;max-results=1&amp;v=2""/>
                         <link rel=""service"" type=""application/atomsvc+xml"" href=""{base_url}/feeds/api/channels?alt=atom-service&amp;v=2""/>
-                        {(continuation != null 
-                            ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>" 
-                            : "")}
+                        {(continuation != null
+                                ? $"<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>"
+                                : "")}
                         <author>
                             <name>YouTube</name>
                             <uri>http://www.youtube.com/</uri>
@@ -227,6 +217,7 @@ namespace Lincon
                 }
             });
 
+            
         }
 
     }

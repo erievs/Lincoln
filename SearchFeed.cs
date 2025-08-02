@@ -5,9 +5,9 @@ using System.Text.Json;
 using Namotion.Reflection;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Options;
-using Lincon.Enums;
 using System.Text.RegularExpressions;
 
+#pragma warning disable CS0618 
 namespace Lincon
 {
 
@@ -22,19 +22,19 @@ namespace Lincon
             HttpClient client = new();
             Dictionary<string, string> videoDict = [];
 
-            async Task<string> UseYTDlP(string query)
+            async Task<string> UseYTDlP(string query, Tuple<int, int> index)
             {
 
                 var options = new OptionSet
                 {
                     DumpSingleJson = true,
                     SkipDownload = true,
-                    FlatPlaylist = false
+                    FlatPlaylist = true,
+                    PlaylistStart = index.Item1,
+                    PlaylistEnd = index.Item1 + index.Item2,
                 };
 
                 var res = await ytdlp.RunVideoDataFetch(query, overrideOptions: options);
-
-                Console.WriteLine("\nRes:\n" + res.Data);
 
                 return res.Data.ToString();
             }
@@ -56,41 +56,24 @@ namespace Lincon
 
                 string? device_id = null;
 
-                if (request.Headers.TryGetValue("X-GData-Device", out var deviceHeaderValues))
-                {
-                    var deviceHeader = deviceHeaderValues.ToString();
-                    var prefix = "device-id=\"";
-                    var startIndex = deviceHeader.IndexOf(prefix);
-                    if (startIndex >= 0)
-                    {
-                        startIndex += prefix.Length;
-                        var endIndex = deviceHeader.IndexOf("\"", startIndex);
-                        if (endIndex > startIndex)
-                        {
-                            device_id = deviceHeader.Substring(startIndex, endIndex - startIndex);
-                        }
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("No Device ID!");
-                }
+                device_id = HandleLogin.ExtractDeviceIDFromRequest(request);
 
-                if (!String.IsNullOrEmpty(device_id) && !AndroidLogin.IsDeviceLinked(device_id)) 
+
+                if (!String.IsNullOrEmpty(device_id) && !HandleLogin.IsDeviceLinked(device_id))
                 {
 
-                    var id = "jNQXAC9IVRw";
+                    var id = "_iPtv6ZpC6c";
+                    var thumbnail_id = "94OFIVpwua0";
                     var title = "Link Your Google Account!";
                     var uploader = "Lincoln";
-                    var thumbnail = $"https://i.ytimg.com/vi/{id}/hqdefault.jpg";
-                    double duration = 19;
-                    var channel_id = "lincoln";
-                    var view_count = 10;
-                    var published = "1970-01-01T00:00:00.000Z";
-                    var description = $"Visit {base_url}/register_android?device_id={device_id}";
-                    var rating = 3;
-                    var dislikes = 12;
-                    var likes = 100;
+                    double duration = 56;
+                    var channel_id = "UC8tD_jEkVm-7O83BeONUG8A";
+                    var view_count = 1863;
+                    var published = "1809-02-12T12:00:00.000Z";
+                    var description = $"Visit: {base_url}/o/oauth2/programmatic_auth?device_id={device_id}";
+                    var rating = 5;
+                    var dislikes = 1861;
+                    var likes = 1865;
 
                     var item = $"""
                     <entry>
@@ -102,7 +85,7 @@ namespace Lincon
                         <title>{title}</title>
                         <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
                         <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
-                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="{base_url}/feeds/api/videos/{id}/related"/>
+                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="https://gdata.youtube.com/feeds/api/videos/{id}/related"/>
                         <link rel='http://gdata.youtube.com/schemas/2007#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
                         <link rel='http://gdata.youtube.com/schemas/2007#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
                         <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
@@ -134,14 +117,15 @@ namespace Lincon
                             <media:keywords/>
                             <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
                             <media:player url='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata_player'/>
-                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
-                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
-                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
-                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
-                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
-                            <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{thumbnail_id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{thumbnail_id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{thumbnail_id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{thumbnail_id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{thumbnail_id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
+                            <media:thumbnail url='http://i.ytimg.com/vi/{thumbnail_id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{duration}" yt:format="3"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="2"/>
+                            <media:content url="{base_url}/getvideo/{id}?muxed=true" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="5"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="8"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="9"/>
                             <media:title type='plain'>{title}</media:title>
@@ -151,7 +135,7 @@ namespace Lincon
                             <yt:videoid>{id}</yt:videoid>
                         </media:group>
                             <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
-                            <yt:recorded>1970-08-22</yt:recorded>
+                            <yt:recorded>1863-01-01</yt:recorded>
                             <yt:statistics favoriteCount='0' viewCount="{view_count}"/>
                             <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
                             <yt:position>1</yt:position>
@@ -165,16 +149,18 @@ namespace Lincon
                 
                 foreach (var result in videos.EnumerateArray())
                 {
-
+                    
                     // you must escape the feilds (I learbed that the hard way once)
                     var id = System.Security.SecurityElement.Escape(result.GetProperty("id").ToString());
                     var title = System.Security.SecurityElement.Escape(result.GetProperty("title").ToString());
                     var uploader = System.Security.SecurityElement.Escape(result.GetProperty("uploader").ToString());
                     var thumbnail = $"https://i.ytimg.com/vi/{id}/hqdefault.jpg";
-                    double duration = Double.Parse(System.Security.SecurityElement.Escape(result.GetProperty("duration").ToString()));
+                    double duration = 42;
+                    if (result.TryGetProperty("duration", out var duration_value) && duration_value.ValueKind == JsonValueKind.Number)
+                        duration = duration_value.GetDouble();
                     var channel_id = System.Security.SecurityElement.Escape(result.GetProperty("channel_id").ToString());
                     var view_count = System.Security.SecurityElement.Escape(result.GetProperty("view_count").ToString());
-                    var published = result.TryGetProperty("view_count", out var d) && d.ValueKind == JsonValueKind.Number ? DateTimeOffset.UtcNow.AddSeconds(-d.GetInt64()).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture) : "1970-01-01T00:00:00.000Z";
+                    var published = result.TryGetProperty("timestamp", out var d) && d.ValueKind == JsonValueKind.Number ? DateTimeOffset.UtcNow.AddSeconds(-d.GetInt64()).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture) : "1970-01-01T00:00:00.000Z";
                     var description = System.Security.SecurityElement.Escape(result.GetProperty("description").ToString()) ?? "placeholder";
                     var rating = 3;
                     var dislikes = 12;
@@ -194,7 +180,7 @@ namespace Lincon
                         <title>{title}</title>
                         <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
                         <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
-                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="{base_url}/feeds/api/videos/{id}/related"/>
+                                         <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="https://gdata.youtube.com/feeds/api/videos/{id}/related"/>
                         <link rel='http://gdata.youtube.com/schemas/2007#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
                         <link rel='http://gdata.youtube.com/schemas/2007#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
                         <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
@@ -234,6 +220,7 @@ namespace Lincon
                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{duration}" yt:format="3"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="2"/>
+                            <media:content url="{base_url}/getvideo/{id}?muxed=true" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="5"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="8"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="9"/>
                             <media:title type='plain'>{title}</media:title>
@@ -266,21 +253,27 @@ namespace Lincon
                 try
                 {
                     string? query = System.Security.SecurityElement.Escape(request.Query["q"]);
+                    var startIndex = 1;
+                    var maxResults = 20;
+
                     // I forgot how to use ? : thingy so I am just doing a if, feel free to change
                     if (String.IsNullOrEmpty(query))
                     {
                         return Results.StatusCode(500);
                     }
 
-                    Console.WriteLine("\nQuery: " + query);
-
-                    var json = await UseYTDlP($"ytsearch20:{query}");
+                    if (!string.IsNullOrEmpty(System.Security.SecurityElement.Escape(request.Query["start-index"])) &&
+                        !string.IsNullOrEmpty(System.Security.SecurityElement.Escape(request.Query["max-results"])))
+                    {
+                        startIndex = int.Parse(System.Security.SecurityElement.Escape(request.Query["start-index"]));
+                        maxResults = int.Parse(System.Security.SecurityElement.Escape(request.Query["max-results"]));
+                    }
+                    
+                    var json = await UseYTDlP($"https://m.youtube.com/results?search_query={query}&sp=EgIQAQ%253D%253D", Tuple.Create(startIndex, maxResults));
 
                     var data = ExtractData(json, request);
 
                     var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
-
-                    var continuation = "todo";
 
                     var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                     <feed xmlns=""http://www.w3.org/2005/Atom""
@@ -298,15 +291,14 @@ namespace Lincon
                         <link rel=""http://schemas.google.com/g/2005#batch"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels/batch?v=2""/>
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=webauditors&amp;start-index=1&amp;max-results=1&amp;v=2""/>
                         <link rel=""service"" type=""application/atomsvc+xml"" href=""{base_url}/feeds/api/channels?alt=atom-service&amp;v=2""/>
-                        {(continuation != null
-                                ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>"
-                                : "")}
+                        <link rel=""previous"" type=""application/atom+xml"" href=""{base_url}/feeds/api/videos?q={Uri.EscapeDataString(query)}&amp;time=all_time&amp;format=2,3,8,9&amp;safeSearch=none&amp;restriction=US&amp;start-index={(startIndex - maxResults > 1 ? startIndex - maxResults : 1)}&amp;max-results={maxResults}""/>
+                        <link rel=""next"" type=""application/atom+xml"" href=""{base_url}/feeds/api/videos?q={Uri.EscapeDataString(query)}&amp;time=all_time&amp;format=2,3,8,9&amp;safeSearch=none&amp;restriction=US&amp;start-index={startIndex + maxResults}&amp;max-results={maxResults}""/>
                         <author>
                             <name>YouTube</name>
                             <uri>http://www.youtube.com/</uri>
                         </author>
                         <generator version=""2.1"" uri=""{base_url}"">YouTube data API</generator>
-                        <openSearch:totalResults>{data.Item2}</openSearch:totalResults>
+                        <openSearch:totalResults>1000</openSearch:totalResults>
                         <openSearch:startIndex>1</openSearch:startIndex>
                         <openSearch:itemsPerPage>1</openSearch:itemsPerPage>
                         {data.Item1}

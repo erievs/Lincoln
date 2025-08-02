@@ -5,14 +5,13 @@ using System.Text.Json;
 using Namotion.Reflection;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Options;
-using Lincon.Enums;
+using System.Security;
 
+#pragma warning disable CS0618 
 namespace Lincon
 {
-
     public static class UploadsFeed
     {
-
         public static void HandleFeed(WebApplication app)
         {
 
@@ -21,20 +20,20 @@ namespace Lincon
             HttpClient client = new();
             Dictionary<string, string> videoDict = [];
 
-            async Task<string> UseYTDlP(string query)
+            async Task<string> UseYTDlP(string query, Tuple<int, int> index)
             {
-                #pragma warning disable CS0618 
+
                 var options = new OptionSet
                 {
                     DumpSingleJson = true,
                     SkipDownload = true,
                     FlatPlaylist = true,
-                    PlaylistStart = 1,
-                    PlaylistEnd = 20
+                    PlaylistStart = index.Item1,
+                    PlaylistEnd = index.Item1 + index.Item2,
                 };
 
                 var res = await ytdlp.RunVideoDataFetch(query, overrideOptions: options);
-                
+
                 return res.Data.ToString();
             }
 
@@ -65,6 +64,7 @@ namespace Lincon
                     var rating = 0;
                     var dislikes = 0;
                     var likes = 0;
+                    var uploader = "Oily Josh";
 
                     var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
@@ -75,17 +75,17 @@ namespace Lincon
                         <updated>{published}</updated>
                         <category scheme='https://schemas.google.com/g/2005#kind' term='https://gdata.youtube.com/schemas/1970#video'/>
                             <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
-                        <title>{title}</title>
+                        <title>{SecurityElement.Escape(title)}</title>
                         <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
                         <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
-                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="{base_url}/feeds/api/videos/{id}/related"/>
-                        <link rel='https://gdata.youtube.com/schemas/1970#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
-                        <link rel='https://gdata.youtube.com/schemas/1970#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
+                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="https://gdata.youtube.com/feeds/api/videos/{id}/related"/>
+                        <link rel='http://gdata.youtube.com/schemas/2007#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
+                        <link rel='http://gdata.youtube.com/schemas/2007#uploader' type='application/atom+xml' href='{base_url}/feeds/api/users/{channel_id}?v=2'/>
                         <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
-                        <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
+                        <link rel='self' type='application/atom+xml' href='{base_url}/feeds/api/playlists/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
                         <author>
-                            <name>{channel_name}</name>
-                            <uri>https://gdata.youtube.com/feeds/api/users/{channel_id}</uri>
+                            <name>{SecurityElement.Escape(uploader)}</name>
+                            <uri>{base_url}/feeds/api/users/{channel_id}</uri>
                             <yt:userId>{channel_id}</yt:userId>
                         </author>
                         <yt:accessControl action='comment' permission='allowed'/>
@@ -105,8 +105,8 @@ namespace Lincon
                             <media:content url='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='{duration}' yt:format='5'/>
                             <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='1'/>
                             <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{duration}' yt:format='6'/>
-                            <media:credit role='uploader' scheme='urn:youtube' yt:display='{channel_name}' yt:type='partner'>{channel_id}</media:credit>
-                            <media:description type='plain'>{description}</media:description>
+                            <media:credit role='uploader' scheme='urn:youtube' yt:display='{SecurityElement.Escape(uploader)}' yt:type='partner'>{channel_id}</media:credit>
+                            <media:description type='plain'>{SecurityElement.Escape(description)}</media:description>
                             <media:keywords/>
                             <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
                             <media:player url='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata_player'/>
@@ -118,12 +118,14 @@ namespace Lincon
                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{duration}" yt:format="3"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="2"/>
+                            <media:content url="{base_url}/getvideo/{id}?muxed=true" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="5"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{duration}" yt:format="8"/>
                             <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{duration}" yt:format="9"/>
-                            <media:title type='plain'>{title}</media:title>
+                            <media:title type='plain'>{SecurityElement.Escape(title)}</media:title>
                             <yt:duration seconds='{duration}'/>
                             <yt:uploaded>{published}</yt:uploaded>
                             <yt:uploaderId>{channel_id}</yt:uploaderId>
+                            <yt:userId>{channel_id}</yt:userId>
                             <yt:videoid>{id}</yt:videoid>
                         </media:group>
                             <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
@@ -147,21 +149,30 @@ namespace Lincon
             {
                 try
                 {
+                    var startIndex = 1;
+                    var maxResults = 20;
 
                     if (String.IsNullOrEmpty(channel_id))
                     {
                         return Results.StatusCode(500);
                     }
 
+                    if (!string.IsNullOrEmpty(System.Security.SecurityElement.Escape(request.Query["start-index"])) &&
+                        !string.IsNullOrEmpty(System.Security.SecurityElement.Escape(request.Query["max-results"])))
+                    {
+                        startIndex = int.Parse(System.Security.SecurityElement.Escape(request.Query["start-index"]));
+                        maxResults = int.Parse(System.Security.SecurityElement.Escape(request.Query["max-results"]));
+                    }
+                    
+
                     Console.WriteLine("\nChannel ID: " + channel_id);
 
-                    var json = await UseYTDlP($"https://www.youtube.com/channel/{channel_id}/videos");
+                    var json = await UseYTDlP($"https://www.youtube.com/channel/{channel_id}/videos", Tuple.Create(startIndex, maxResults));
 
                     var data = ExtractData(json, channel_id, request);
 
                     var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
 
-                    var continuation = "todo";
 
                     var template = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                     <feed xmlns=""http://www.w3.org/2005/Atom""
@@ -179,9 +190,8 @@ namespace Lincon
                         <link rel=""http://schemas.google.com/g/2005#batch"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels/batch?v=2""/>
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/channels?q=webauditors&amp;start-index=1&amp;max-results=1&amp;v=2""/>
                         <link rel=""service"" type=""application/atomsvc+xml"" href=""{base_url}/feeds/api/channels?alt=atom-service&amp;v=2""/>
-                        {(continuation != null
-                                ? "<link rel='next' type='application/atom+xml' href='{System.Security.SecurityElement.Escape(base_url)}/feeds/api/videos?continuation={continuation}'/>"
-                                : "")}
+                        <link rel=""previous"" type=""application/atom+xml"" href=""{base_url}/feeds/api/users/{Uri.EscapeDataString(channel_id)}/uploads?start-index={(startIndex - maxResults > 1 ? startIndex - maxResults : 1)}&amp;max-results={maxResults}""/>
+                        <link rel=""next"" type=""application/atom+xml"" href=""{base_url}/feeds/api/users/{Uri.EscapeDataString(channel_id)}/uploads?start-index={startIndex + maxResults}&amp;max-results={maxResults}""/>
                         <author>
                             <name>YouTube</name>
                             <uri>http://www.youtube.com/</uri>

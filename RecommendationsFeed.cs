@@ -1,8 +1,6 @@
 using System.Net.Http.Headers;
-using System.Text.Json;
 using System.Security;
-using Lincon;
-using System.Threading.Tasks;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 #pragma warning disable CS8600 
@@ -20,7 +18,7 @@ namespace Lincon
 
             async Task<string> UseInnerTube(string? accessToken)
             {
-                var apiUrl = "https://www.googleapis.com/youtubei/v1/browse?key=AIzaSyDCU8hByM-4DrUqRUYnGn-3llEO78bcxq8";
+                var endpoint = "https://www.googleapis.com/youtubei/v1/browse?key=AIzaSyDCU8hByM-4DrUqRUYnGn-3llEO78bcxq8";
 
                 var payload = new
                 {
@@ -42,18 +40,27 @@ namespace Lincon
                             screenPixelDensity = 1
                         }
                     },
-                    browseId = "FEwhat_to_watch"
+
+                    // this is the end point for the home page of youtube
+                    // technically what_to_watch and recommendations were different feeds in gdata
+                    // however there isn't a dedicated "recommendations" feed anymore since like 2015 or something
+                    // it is intentionally FEwhat_to_watch, and it includes a recommended videos tab and some topics
+                    // back in gdata data whattowatch (intentionally river) was a mix of recommendations and videos from subbed channels
+                    // while recommendations was soley recommendations. 
+
+                    browseId = "FEwhat_to_watch" // aka 'default'
                 };
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+                using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
                 request.Content = JsonContent.Create(payload);
 
-                var response = await client.SendAsync(request);
-                var json = await response.Content.ReadAsStringAsync();
+                var res = await client.SendAsync(request);
+                var json = await res.Content.ReadAsStringAsync();
 
-                if (!response.IsSuccessStatusCode)
-                    throw new Exception($"API request failed with status {response.StatusCode}");
+                if (!res.IsSuccessStatusCode)
+                    throw new Exception($"Browse request failed with status {res.StatusCode}");
 
                 return json;
             }
@@ -113,7 +120,7 @@ namespace Lincon
                     var views = viewsText.Replace("thousand", "").Trim();
                     if (double.TryParse(views, out result))
                     {
-                        return (int)(result * 1000); 
+                        return (int)(result * 1000);
                     }
                 }
 
@@ -122,7 +129,7 @@ namespace Lincon
                     var views = viewsText.Replace("k", "").Trim();
                     if (double.TryParse(views, out result))
                     {
-                        return (int)(result * 1000); 
+                        return (int)(result * 1000);
                     }
                 }
 
@@ -131,7 +138,7 @@ namespace Lincon
                     var views = viewsText.Replace("million", "").Replace("m", "").Trim();
                     if (double.TryParse(views, out result))
                     {
-                        return (int)(result * 1000000); 
+                        return (int)(result * 1000000);
                     }
                 }
 
@@ -140,21 +147,33 @@ namespace Lincon
                     var views = viewsText.Replace("billion", "").Replace("b", "").Trim();
                     if (double.TryParse(views, out result))
                     {
-                        return (int)(result * 1000000000); 
+                        return (int)(result * 1000000000);
                     }
                 }
 
-                Console.WriteLine("WHY WON'T YOU JUST BE NORMAL: " + viewsText);
-                return 0;
+                return 301; // easter egg for old youtube
             }
 
-            // will make it non async since we dont use it later (I stole this aysnc template from microsoft iirc)
             Tuple<string, int> ExtractData(string json, string access_token, HttpRequest request)
             {
 
                 using var doc = JsonDocument.Parse(json);
-
                 var combined = new List<string>();
+                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
+                int count = 0;
+
+                // the FEwhat_to_watch feed is layed out like this
+                // multiple shelfs with different topics
+                // first being recommendations
+                // all other shelfs tend to change over time and based on what you watch 
+                // (though recently uploaded tends to be second more often than not)
+
+                // the /browse responses tend to be layed out the same way 
+                // however sometimes the entry point to videos change
+
+                // innertube is formated in a way to help render the app
+                // so the names are pretty straight foward, and by looking at the site
+                // you get a clear picture of what is what
 
                 JsonElement sectionsRoot;
                 try
@@ -173,16 +192,10 @@ namespace Lincon
                     return Tuple.Create("", 0);
                 }
 
-                int count = 0;
-
-                var base_url = $"{request.Scheme}://{request.Host}{request.PathBase}";
-
                 // weclome to hell again 
-
                 foreach (var section in sectionsRoot.EnumerateArray())
                 {
-                    if (section.TryGetProperty("shelfRenderer", out var shelfRenderer) &&
-                        shelfRenderer.TryGetProperty("content", out var content) &&
+                    if (section.TryGetProperty("shelfRenderer", out var shelfRenderer) && shelfRenderer.TryGetProperty("content", out var content) &&
                         content.TryGetProperty("horizontalListRenderer", out var horizontalListRenderer))
                     {
                         if (horizontalListRenderer.TryGetProperty("items", out var items))
@@ -192,19 +205,7 @@ namespace Lincon
                                 if (item.TryGetProperty("tileRenderer", out var tileRenderer))
                                 {
 
-                                    // this is the most annoying json to deal with 
-                                    // it is so ooooooooooooooooooooooo nested
-                                    // log and pray is my method
-
-                                    // i'd suggest making a post request with curl for refrence
-
-                                    // ozzy is dead ):
-
-
-                                    // we just default and supress errors to not clogg the term
-
-                                    var id = "";
-
+                                    var id = "yapdollar";
                                     if (tileRenderer.TryGetProperty("onSelectCommand", out var onSelectCommand))
                                     {
                                         if (onSelectCommand.TryGetProperty("watchEndpoint", out var watchEndpoint))
@@ -214,6 +215,10 @@ namespace Lincon
                                                 : "Unknown";
                                         }
                                     }
+                                    else
+                                    {
+                                        continue;
+                                    }
 
                                     string title = tileRenderer.GetProperty("metadata")
                                         .GetProperty("tileMetadataRenderer")
@@ -221,15 +226,17 @@ namespace Lincon
                                         .GetProperty("simpleText")
                                         .GetString() ?? "No Title";
 
-                                    string description = ""; // we are ignoring this for now
 
-                                    string viewsText = "";
-
+                                    // we have this in a try and catch block
+                                    // to avoid annoying TryGetProperty expection errors
+                                    // this isn't too important and it seems hit or miss if a video has the text
+                                    // and it isn't useful seeing the error log whatsoever lol
+                                    // just default to 301 (easter egg) in the catch block
+                                    string views_text = "";
+                                    int view_count = 301;
                                     try
                                     {
-
-                                        if (tileRenderer.TryGetProperty("metadata", out var metadata) &&
-                                            metadata.TryGetProperty("tileMetadataRenderer", out var tileMetadataRenderer) &&
+                                        if (tileRenderer.TryGetProperty("metadata", out var metadata) && metadata.TryGetProperty("tileMetadataRenderer", out var tileMetadataRenderer) &&
                                             tileMetadataRenderer.TryGetProperty("lines", out var lines) &&
                                             lines.GetArrayLength() > 1)
                                         {
@@ -247,37 +254,18 @@ namespace Lincon
 
                                                     if (accessibilityData.TryGetProperty("label", out var label))
                                                     {
-                                                        viewsText = label.GetString() ?? "0k";
-                                                    }
-                                                    else
-                                                    {
-                                                        viewsText = "1k";
+                                                        views_text = label.GetString() ?? "301";
+                                                        view_count = ConvertViewsToInt(views_text);
                                                     }
                                                 }
-                                                else
-                                                {
-                                                    viewsText = "1k";
-                                                }
-                                            }
-                                            else
-                                            {
-                                                viewsText = "1k";
                                             }
                                         }
-                                        else
-                                        {
-                                            viewsText = "1k";
-                                        }
+                                        
                                     }
-                                    catch (Exception ex)
-                                    {
-                                        viewsText = "1k";
-                                    }
+                                    catch (Exception ex) {/* this stops it from logging, nothing to do here besides that!*/}
 
-                                    int viewCount = ConvertViewsToInt(viewsText);
 
-                                    string durationText = "0:00";
-
+                                    string duration_text = "0:00";
                                     if (tileRenderer.TryGetProperty("header", out var header))
                                     {
                                         if (header.TryGetProperty("tileHeaderRenderer", out var tileHeaderRenderer))
@@ -291,7 +279,7 @@ namespace Lincon
                                                     {
                                                         if (text.TryGetProperty("simpleText", out var simpleText))
                                                         {
-                                                            durationText = simpleText.GetString() ?? "0:00";
+                                                            duration_text = simpleText.GetString() ?? "0:00";
                                                         }
                                                     }
                                                 }
@@ -300,9 +288,9 @@ namespace Lincon
                                     }
 
                                     int total_seconds = 0;
-                                    if (!string.IsNullOrEmpty(durationText))
+                                    if (!string.IsNullOrEmpty(duration_text))
                                     {
-                                        var durationParts = durationText.Split(':');
+                                        var durationParts = duration_text.Split(':');
                                         if (durationParts.Length == 2)
                                         {
                                             if (int.TryParse(durationParts[0], out int minutes) && int.TryParse(durationParts[1], out int seconds))
@@ -320,9 +308,8 @@ namespace Lincon
                                         }
                                     }
 
-                                    string timeAgo = "Unknown";
-                                    string published = "Unknown";
-
+                                    string time_ago = "13 Years Ago";
+                                    string published = "";
                                     if (tileRenderer.TryGetProperty("metadata", out var metadataDate))
                                     {
 
@@ -344,57 +331,58 @@ namespace Lincon
 
                                                         if (text.TryGetProperty("simpleText", out var simpleText))
                                                         {
-                                                            timeAgo = simpleText.GetString() ?? "1 Day Ago";
+                                                            time_ago = simpleText.GetString() ?? "1 Day Ago";
+                                                            published = ConvertRelativeDate(time_ago);
                                                         }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                    published = ConvertRelativeDate(timeAgo);
-
+                                    else
+                                    {
+                                      published = ConvertRelativeDate(time_ago);
+                                    }
+                                   
 
                                     string channel_id = "default";
-                                    if (tileRenderer.TryGetProperty("onLongPressCommand", out var onLongPressCommand))
-                                    {
-
-                                        if (onLongPressCommand.TryGetProperty("showMenuCommand", out var showMenuCommand))
+                                    string uploader = "default";
+                                    try
+                                    {   // browseids are very nested away
+                                        if (tileRenderer.TryGetProperty("onLongPressCommand", out var onLongPressCommand))
                                         {
-                                            if (showMenuCommand.TryGetProperty("menu", out var menu))
+                                            if (onLongPressCommand.TryGetProperty("showMenuCommand", out var showMenuCommand))
                                             {
-                                                if (menu.TryGetProperty("menuRenderer", out var menuRenderer))
+                                                if (showMenuCommand.TryGetProperty("menu", out var menu))
                                                 {
-                                                    foreach (var menuItem in menuRenderer.GetProperty("items").EnumerateArray())
+                                                    if (menu.TryGetProperty("menuRenderer", out var menuRenderer))
                                                     {
-                                                        if (menuItem.TryGetProperty("menuNavigationItemRenderer", out var menuNavigationItemRenderer))
+                                                        foreach (var menuItem in menuRenderer.GetProperty("items").EnumerateArray())
                                                         {
-
-                                                            var text = menuNavigationItemRenderer
-                                                                .GetProperty("text")
-                                                                .GetProperty("runs")[0]
-                                                                .GetProperty("text")
-                                                                .GetString();
-
-                                                            if (text == "Go to channel")
+                                                            if (menuItem.TryGetProperty("menuNavigationItemRenderer", out var menuNavigationItemRenderer))
                                                             {
-                                                                channel_id = menuNavigationItemRenderer
-                                                                .GetProperty("navigationEndpoint")
-                                                                .GetProperty("browseEndpoint")
-                                                                .GetProperty("browseId")
-                                                                .GetString();
+                                                                // this can varry so we have to check
+                                                                var text = menuNavigationItemRenderer
+                                                                    .GetProperty("text")
+                                                                    .GetProperty("runs")[0]
+                                                                    .GetProperty("text")
+                                                                    .GetString();
 
+                                                                if (text == "Go to channel")
+                                                                {
+                                                                    channel_id = menuNavigationItemRenderer
+                                                                    .GetProperty("navigationEndpoint")
+                                                                    .GetProperty("browseEndpoint")
+                                                                    .GetProperty("browseId")
+                                                                    .GetString();
+
+                                                                }
                                                             }
                                                         }
                                                     }
                                                 }
                                             }
                                         }
-                                    }
-
-                                    string uploader = "default";
-
-                                    try
-                                    {
 
                                         if (onLongPressCommand.TryGetProperty("showMenuCommand", out var showMenuCommandUploader)) // sadly I had issue reusing them from above ohwell
                                         {
@@ -411,30 +399,28 @@ namespace Lincon
 
                                             }
                                         }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        continue;
-                                    }
+                                    } catch (Exception ex) { continue; /* this should skip videos that dont have a browseid (I think) */ }
+
+                                    var description = ""; // we are ignoring this for now
 
                                     var rating = 5;
                                     var likes = 0;
-                                    var dislikes = 0;
+                                    var dislikes = 0;                  
 
-                                    var item_xml = $"""
+                                    string item_xml = $@"
                                     <entry>
                                         <id>tag:youtube.com,2008:video:{id}</id>
                                         <published>{published}</published>
                                         <updated>{published}</updated>
                                         <category scheme='https://schemas.google.com/g/2005#kind' term='https://gdata.youtube.com/schemas/1970#video'/>
-                                            <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
-                                        <title>{title}</title>
-                                        <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
-                                        <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata'/>
-                                        <link rel="http://gdata.youtube.com/schemas/2007#video.related" href="{base_url}/feeds/api/videos/{id}/related"/>
-                                        <link rel='https://gdata.youtube.com/schemas/1970#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
+                                        <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
+                                        <title>{SecurityElement.Escape(title)}</title>
+                                        <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/paWE-GvDO1c?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
+                                        <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v=paWE-GvDO1c&amp;feature=youtube_gdata'/>
+                                        <link rel='http://gdata.youtube.com/schemas/2007#video.related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}/related'/>
+                                        <link rel='https://gdata.youtube.com/schemas/1970#mobile' type='text/html' href='https://m.youtube.com/details?v=paWE-GvDO1c'/>
                                         <link rel='https://gdata.youtube.com/schemas/1970#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
-                                        <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
+                                        <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}=2'/>
                                         <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
                                         <author>
                                             <name>{uploader}</name>
@@ -450,42 +436,42 @@ namespace Lincon
                                         <yt:accessControl action='autoPlay' permission='allowed'/>
                                         <yt:accessControl action='syndicate' permission='allowed'/>
                                         <gd:comments>
-                                            <gd:feedLink rel='https://gdata.youtube.com/schemas/1970#comments' href='{base_url}/api/videos/{id}/comments' countHint='5'/>
+                                            <gd:feedLink rel='https://gdata.youtube.com/schemas/1970#comments' href='{base_url}/api/videos/{id}/comments?v=2' countHint='5'/>
                                         </gd:comments>
                                         <yt:location>Cleveland ,US</yt:location>
                                         <media:group>
                                             <media:category label='Howto &amp; Style' scheme='https://gdata.youtube.com/schemas/1970/categories.cat'>Howto</media:category>
-                                            <media:content url='https://www.youtube.com/v/{id}?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='{total_seconds}' yt:format='5'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='1'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='6'/>
+                                            <media:content url='https://www.youtube.com/v/paWE-GvDO1c?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='1231' yt:format='5'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='1'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='6'/>
                                             <media:credit role='uploader' scheme='urn:youtube' yt:display='{uploader}' yt:type='partner'>{channel_id}</media:credit>
                                             <media:description type='plain'>{description}</media:description>
                                             <media:keywords/>
                                             <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
-                                            <media:player url='https://www.youtube.com/watch?v={id}&amp;feature=youtube_gdata_player'/>
+                                            <media:player url='https://www.youtube.com/watch?v=paWE-GvDO1c&amp;feature=youtube_gdata_player'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
-                                            <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" isDefault="true" expression="full" duration="{total_seconds}" yt:format="3"/>
-                                            <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{total_seconds}" yt:format="2"/>
-                                            <media:content url="{base_url}/getvideo/{id}" type="video/mp4" medium="video" expression="full" duration="{total_seconds}" yt:format="8"/>
-                                            <media:content url="{base_url}/getvideo/{id}" type="video/3gpp" medium="video" expression="full" duration="{total_seconds}" yt:format="9"/>
-                                            <media:title type='plain'>{title}</media:title>
-                                            <yt:duration seconds='{total_seconds}'/>
-                                            <yt:uploaded>{published}</yt:uploaded>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' isDefault='true' expression='full' duration='1231' yt:format='3'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='2'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' expression='full' duration='1231' yt:format='8'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='9'/>
+                                            <media:title type='plain'>{SecurityElement.Escape(title)}</media:title>
+                                            <yt:duration seconds='1231'/>
+                                            <yt:uploaded>2024-11-30T20:40:12.270Z</yt:uploaded>
                                             <yt:uploaderId>{channel_id}</yt:uploaderId>
                                             <yt:videoid>{id}</yt:videoid>
                                         </media:group>
-                                            <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
-                                            <yt:recorded>1970-08-22</yt:recorded>
-                                            <yt:statistics favoriteCount='0' viewCount="{viewCount}"/>
-                                            <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
-                                            <yt:position>1</yt:position>
-                                    </entry>
-                                    """;
+                                        <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
+                                        <yt:recorded>1970-08-22</yt:recorded>
+                                        <yt:statistics favoriteCount='0' viewCount='{view_count}'/>
+                                        <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
+                                        <yt:position>1</yt:position>
+                                        <yt:videoid>{id}</yt:videoid>
+                                    </entry>";
 
                                     combined.Add(item_xml);
                                     count++;
@@ -505,34 +491,14 @@ namespace Lincon
 
                     string? device_id = null;
 
-                    if (request.Query.TryGetValue("device_id", out var deviceIdQueryValues))
-                    {
-                        device_id = deviceIdQueryValues.ToString(); // this is more for really just testing 
-                    }
-                    else if (request.Headers.TryGetValue("X-GData-Device", out var deviceHeaderValues))
-                    {
-                        var deviceHeader = deviceHeaderValues.ToString();
-                        var prefix = "device-id=\"";
-                        var startIndex = deviceHeader.IndexOf(prefix);
-                        if (startIndex >= 0)
-                        {
-                            startIndex += prefix.Length;
-                            var endIndex = deviceHeader.IndexOf("\"", startIndex);
-                            if (endIndex > startIndex)
-                            {
-                                device_id = deviceHeader.Substring(startIndex, endIndex - startIndex);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        return Results.Problem("You must link your android device", statusCode: 403);
-                    }
+                    device_id = HandleLogin.ExtractDeviceIDFromRequest(request);
 
                     if (string.IsNullOrEmpty(device_id))
                         return Results.Problem("Invalid device id header", statusCode: 403);
 
-                    var access_token = await AndroidLogin.GetValidAccessTokenAsync(device_id);
+
+
+                    var access_token = await HandleLogin.GetValidAccessTokenAsync(device_id);
 
                     var json = await UseInnerTube(access_token);
 

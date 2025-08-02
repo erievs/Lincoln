@@ -10,17 +10,17 @@
         "projectUniqueName": "/home/ksportalcraft/Documents/C#/Lincon/Lincon.csproj",
         "projectName": "Lincon",
         "projectPath": "/home/ksportalcraft/Documents/C#/Lincon/Lincon.csproj",
-        "packagesPath": "/root/.nuget/packages/",
+        "packagesPath": "/home/ksportalcraft/.nuget/packages/",
         "outputPath": "/home/ksportalcraft/Documents/C#/Lincon/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/root/.nuget/NuGet/NuGet.Config"
+          "/home/ksportalcraft/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "/usr/lib64/dotnet/library-packs": {},
+          "/home/ksportalcraft/.dotnet/library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -38,8 +38,7 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "9.0.100"
+        }
       },
       "frameworks": {
         "net8.0": {
@@ -86,12 +85,6 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.NETCore.App.Host.linux-x64",
-              "version": "[8.0.17, 8.0.17]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.AspNetCore.App": {
               "privateAssets": "none"
@@ -100,7 +93,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/lib64/dotnet/sdk/9.0.107/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/home/ksportalcraft/.dotnet/sdk/8.0.403/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
