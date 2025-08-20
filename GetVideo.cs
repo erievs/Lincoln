@@ -4,6 +4,7 @@ using Google.Protobuf;
 using System.Text.Json;
 using YoutubeDLSharp.Options;
 using System.Text.RegularExpressions;
+using System.Security;
 
 #pragma warning disable CS0618 
 #pragma warning disable CS8619 
@@ -23,12 +24,18 @@ namespace Lincon
             HttpClient client = new();
             Dictionary<string, string> videoDict = [];
 
+            // Options
+
+            bool skipHLSCheck = false;
+
+            // End
+
             async Task<string> UseYTDlP(string url, bool skipDownload, params string[] args)
             {
-                
+
                 var res = "";
 
-                var options = new OptionSet {};
+                var options = new OptionSet { };
 
                 if (skipDownload == true)
                 {
@@ -60,13 +67,13 @@ namespace Lincon
                 return res;
             }
 
-            async Task<(string, bool)> ExtractManifest(string data)
+            async Task<(string manifest, bool isMuxed)> ExtractManifest(string data)
             {
                 using var res = JsonDocument.Parse(data);
                 if (!res.RootElement.TryGetProperty("formats", out var formats))
                     return ("", false);
 
-                var manifest_urls = formats.EnumerateArray()
+                var manifestUrls = formats.EnumerateArray()
                     .Where(f =>
                         f.TryGetProperty("protocol", out var p) && p.GetString()?.Contains("m3u8") == true &&
                         f.TryGetProperty("ext", out var e) && e.GetString()?.Equals("mp4", StringComparison.OrdinalIgnoreCase) == true &&
@@ -76,58 +83,86 @@ namespace Lincon
                     .Distinct()
                     .ToList();
 
-                foreach (var manifestUrl in manifest_urls)
+                const string ua = "com.google.ios.youtube/20.14.2 (iPhone12,1; U; CPU iOS 18_3_2 like Mac OS X; en_US)";
+                const string refer = "https://www.youtube.com/";
+
+                if (!skipHLSCheck)
                 {
-                    try
+                    foreach (var manifestUrl in manifestUrls)
                     {
-                        const string ua = "com.google.ios.youtube/20.14.2 (iPhone12,1; U; CPU iOS 18_3_2 like Mac OS X; en_US)";
-                        const string refer = "https://www.youtube.com/";
-
-                        var head_req = new HttpRequestMessage(HttpMethod.Head, manifestUrl);
-                        head_req.Headers.UserAgent.ParseAdd(ua);
-                        head_req.Headers.Referrer = new Uri(refer);
-                        
-                        if ((await client.SendAsync(head_req)).StatusCode == System.Net.HttpStatusCode.Forbidden)
-                            continue;
-
-                        var manifest_req = new HttpRequestMessage(HttpMethod.Get, manifestUrl);
-                        manifest_req.Headers.UserAgent.ParseAdd(ua);
-                        var lines = (await (await client.SendAsync(manifest_req)).Content.ReadAsStringAsync())
-                                    .Split('\n')
-                                    .Where((l, i) => !l.Contains("vp09") && !l.Contains("dubbed-auto"))
-                                    .ToList();
-
-                        foreach (var line in lines.Where(l => l.StartsWith("#EXT-X-MEDIA") && l.Contains("TYPE=AUDIO")))
+                        try
                         {
-                            var match = Regex.Match(line, "URI=\"(.*?)\"");
-                            if (!match.Success) continue;
+                            if (await IsForbidden(manifestUrl, ua, refer))
+                                continue;
 
-                            var audio_url = new Uri(new Uri(manifestUrl), match.Groups[1].Value).ToString();
+                            var manifestContent = await GetStringAsync(manifestUrl, ua);
+                            var manifestLines = manifestContent.Split('\n').ToList();
+                            var lines = new List<string>();
 
-                            var audio_req = new HttpRequestMessage(HttpMethod.Get, audio_url);
-                            audio_req.Headers.UserAgent.ParseAdd(ua);
-                            audio_req.Headers.Referrer = new Uri(refer);
+                            for (int i = 0; i < manifestLines.Count; i++)
+                            {
+                                var line = manifestLines[i];
+                                if (line.Contains("vp09") || line.Contains("dubbed-auto"))
+                                {
 
-                            var audio_lines = (await (await client.SendAsync(audio_req)).Content.ReadAsStringAsync()).Split('\n');
+                                    i++;
+                                    continue;
+                                }
+                                lines.Add(line);
+                            }
 
-                            var seg = audio_lines.FirstOrDefault(l => !l.StartsWith("#") && (l.EndsWith(".ts") || l.EndsWith(".m4s") || l.EndsWith(".seg")));
-                            if (seg == null) continue;
-
-                            var seg_url = new Uri(new Uri(audio_url), seg).ToString();
-
-                            var seg_req = new HttpRequestMessage(HttpMethod.Head, seg_url);
-                            seg_req.Headers.UserAgent.ParseAdd(ua);
-
-                            if ((await client.SendAsync(seg_req)).StatusCode != System.Net.HttpStatusCode.Forbidden)
+                            if (await CheckAudioSegment(lines, manifestUrl, ua, refer))
                                 return (string.Join("\n", lines), false);
                         }
-                        
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Manifest check failed: {ex.Message}");
+                            continue;
+                        }
                     }
-                    catch { continue; }
                 }
 
                 var muxed = ExtractMuxedUrl(data);
                 return muxed != null ? (muxed, true) : ("", false);
+            }
+
+            async Task<bool> IsForbidden(string url, string ua, string refer)
+            {
+                var headReq = new HttpRequestMessage(HttpMethod.Head, url);
+                headReq.Headers.UserAgent.ParseAdd(ua);
+                headReq.Headers.Referrer = new Uri(refer);
+                var res = await client.SendAsync(headReq);
+                return res.StatusCode == System.Net.HttpStatusCode.Forbidden;
+            }
+
+            async Task<string> GetStringAsync(string url, string ua)
+            {
+                var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.UserAgent.ParseAdd(ua);
+                var res = await client.SendAsync(req);
+                return await res.Content.ReadAsStringAsync();
+            }
+
+            async Task<bool> CheckAudioSegment(List<string> lines, string manifestUrl, string ua, string refer)
+            {
+                foreach (var line in lines.Where(l => l.StartsWith("#EXT-X-MEDIA") && l.Contains("TYPE=AUDIO")))
+                {
+                    var match = Regex.Match(line, "URI=\"(.*?)\"");
+                    if (!match.Success) continue;
+
+                    var audioUrl = new Uri(new Uri(manifestUrl), match.Groups[1].Value).ToString();
+                    var audioContent = await GetStringAsync(audioUrl, ua);
+                    var seg = audioContent.Split('\n')
+                        .FirstOrDefault(l => !l.StartsWith("#") && 
+                                            (l.EndsWith(".ts") || l.EndsWith(".m4s") || l.EndsWith(".seg")));
+
+                    if (seg == null) continue;
+
+                    var segUrl = new Uri(new Uri(audioUrl), seg).ToString();
+                    if (!await IsForbidden(segUrl, ua, refer))
+                        return true;
+                }
+                return false;
             }
 
             string ExtractMuxedUrl(string data)
@@ -175,8 +210,16 @@ namespace Lincon
                 var like_count = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("like_count").GetInt32().ToString()) ?? "1809"; // (Lincon's birthyear)
                 
                 var category = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("categories")[0].GetString()) ?? System.Security.SecurityElement.Escape("Film & Animation");
+            
+                var comment_count = "0";
 
-                var comment_count = System.Security.SecurityElement.Escape(res.RootElement.GetProperty("comment_count").GetInt32().ToString()) ?? "0";
+                if (res.RootElement.TryGetProperty("comment_count", out var commentCountProp) &&
+                commentCountProp.ValueKind == JsonValueKind.Number)
+                {
+                comment_count = commentCountProp.GetInt32().ToString();
+                }
+
+                comment_count = System.Security.SecurityElement.Escape(comment_count);
 
                 var published = "2013-01-01T00:00:00.000Z";
                 if (res.RootElement.TryGetProperty("timestamp", out var timestamp))
@@ -401,7 +444,7 @@ namespace Lincon
 
                     // janky fix for android rel vids
                     if (id.StartsWith("%24", StringComparison.OrdinalIgnoreCase))
-                    id = id.Substring(3);
+                        id = id.Substring(3);
                         
                     if (id.StartsWith("$"))
                         id = id.Substring(1);
@@ -429,7 +472,7 @@ namespace Lincon
                         <content type='text'>{data.Item3}</content>
                         <link rel='http://gdata.youtube.com/schemas/2007#video.related' href='{base_url}/feeds/api/videos/{id}/related'/>
                         <author>
-                            <name>{data.Item2}</name>
+                            <name>{SecurityElement.Escape(data.Item2)}</name>
                             <uri>{base_url}/feeds/api/users/{data.Item6}</uri>
                             <yt:userId>{data.Item6}</yt:userId>
                         </author>
@@ -450,7 +493,7 @@ namespace Lincon
                             <media:keywords>ben</media:keywords>
                             <media:player url='http://www.youtube.com/watch?v={id}'/>
                             <media:credit role='uploader' name='{data.Item6}'>{data.Item6}</media:credit>
-                            <yt:duration seconds='104'/>
+                            <yt:duration seconds='{data.Item5}'/>
                             <yt:videoid>${id}</yt:videoid>
                             <yt:userId>{data.Item6}</yt:userId>
                             <yt:uploaderId>{data.Item6}</yt:uploaderId>

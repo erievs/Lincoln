@@ -423,7 +423,7 @@ namespace Lincon
                                         <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}=2'/>
                                         <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
                                         <author>
-                                            <name>{uploader}</name>
+                                            <name>{SecurityElement.Escape(uploader)}</name>
                                             <uri>https://gdata.youtube.com/feeds/api/users/{channel_id}</uri>
                                             <yt:userId>{channel_id}</yt:userId>
                                         </author>
@@ -442,8 +442,8 @@ namespace Lincon
                                         <media:group>
                                             <media:category label='Howto &amp; Style' scheme='https://gdata.youtube.com/schemas/1970/categories.cat'>Howto</media:category>
                                             <media:content url='https://www.youtube.com/v/paWE-GvDO1c?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='1231' yt:format='5'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='1'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='6'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='1'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='6'/>
                                             <media:credit role='uploader' scheme='urn:youtube' yt:display='{uploader}' yt:type='partner'>{channel_id}</media:credit>
                                             <media:description type='plain'>{description}</media:description>
                                             <media:keywords/>
@@ -455,12 +455,12 @@ namespace Lincon
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
                                             <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' isDefault='true' expression='full' duration='1231' yt:format='3'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='2'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' expression='full' duration='1231' yt:format='8'/>
-                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='1231' yt:format='9'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' isDefault='true' expression='full' duration='{total_seconds}' yt:format='3'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='2'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/mp4' medium='video' expression='full' duration='{total_seconds}' yt:format='8'/>
+                                            <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='9'/>
                                             <media:title type='plain'>{SecurityElement.Escape(title)}</media:title>
-                                            <yt:duration seconds='1231'/>
+                                            <yt:duration seconds='{total_seconds}'/>
                                             <yt:uploaded>2024-11-30T20:40:12.270Z</yt:uploaded>
                                             <yt:uploaderId>{channel_id}</yt:uploaderId>
                                             <yt:videoid>{id}</yt:videoid>
@@ -472,6 +472,11 @@ namespace Lincon
                                         <yt:position>1</yt:position>
                                         <yt:videoid>{id}</yt:videoid>
                                     </entry>";
+
+                                    if (id == "default" || channel_id == "default")
+                                    {
+                                        item_xml = "";
+                                    }
 
                                     combined.Add(item_xml);
                                     count++;

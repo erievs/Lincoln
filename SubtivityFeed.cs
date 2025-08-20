@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace Lincon
 {
-    public static class NewSubscriptionVideosFeed
+    public static class SubtivityFeed
     {
         public static void HandleFeed(WebApplication app)
         {
@@ -406,81 +406,63 @@ namespace Lincon
                                             }
                                             catch { continue; /* this should skip videos that dont have a browseid (I think) */ }
 
-
-                                            var description = ""; // we are ignoring this for now
-
-                                            var rating = 5;
-                                            var likes = 0;
-                                            var dislikes = 0;
-
-                                                                
                                             string item_xml = @$"
-                                            <entry>
-                                                <id>tag:youtube.com,2008:video:{id}</id>
-                                                <published>1970-01-01T00:00:00.000Z</published>
-                                                <updated>1970-01-01T00:00:00.000Z</updated>
-                                                <category scheme='https://schemas.google.com/g/2005#kind' term='https://gdata.youtube.com/schemas/1970#video'/>
-                                                <category scheme='https://gdata.youtube.com/schemas/1970/categories.cat' term='Howto' label='Howto &amp; Style'/>
-                                                <title>{SecurityElement.Escape(title)}</title>
-                                                <content type='application/x-shockwave-flash' src='https://www.youtube.com/v/9DjIh0sVBR0?version=3&amp;f=playlists&amp;app=youtube_gdata'/>
-                                                <link rel='alternate' type='text/html' href='https://www.youtube.com/watch?v=9DjIh0sVBR0&amp;feature=youtube_gdata'/>
-                                                <link rel=""http://gdata.youtube.com/schemas/2007#video.related"" href=""https://gdata.youtube.com/feeds/api/videos/{id}/related""/>
-                                                <link rel='http://gdata.youtube.com/schemas/2007#mobile' type='text/html' href='https://m.youtube.com/details?v={id}'/>
-                                                <link rel='http://gdata.youtube.com/schemas/2007#uploader' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/{channel_id}?v=2'/>
-                                                <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/9DjIh0sVBR0?v=2'/>
-                                                <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
-                                                <author>
-                                                    <name>{SecurityElement.Escape(uploader)}</name>
-                                                    <uri>{base_url}/feeds/api/users/{channel_id}</uri>
-                                                    <yt:userId>{channel_id}</yt:userId>
-                                                </author>
-                                                <yt:accessControl action='comment' permission='allowed'/>
-                                                <yt:accessControl action='commentVote' permission='allowed'/>
-                                                <yt:accessControl action='videoRespond' permission='moderated'/>
-                                                <yt:accessControl action='rate' permission='allowed'/>
-                                                <yt:accessControl action='embed' permission='allowed'/>
-                                                <yt:accessControl action='list' permission='allowed'/>
-                                                <yt:accessControl action='autoPlay' permission='allowed'/>
-                                                <yt:accessControl action='syndicate' permission='allowed'/>
-                                                <gd:comments>
-                                                    <gd:feedLink rel='https://gdata.youtube.com/schemas/1970#comments' href='{base_url}/api/videos/{id}/comments' countHint='5'/>
-                                                </gd:comments>
-                                                <yt:location>Cleveland ,US</yt:location>
-                                                <media:group>
-                                                    <media:category label='Howto &amp; Style' scheme='https://gdata.youtube.com/schemas/1970/categories.cat'>Howto</media:category>
-                                                    <media:content url='https://www.youtube.com/v/9DjIh0sVBR0?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='36' yt:format='5'/>
-                                                    <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='1'/>
-                                                    <media:content url='{base_url}/getvideo/{id}' type='video/3gpp' medium='video' expression='full' duration='{total_seconds}' yt:format='6'/>
-                                                    <media:credit role='uploader' scheme='urn:youtube' yt:display='{SecurityElement.Escape(uploader)}' yt:type='partner'>{channel_id}</media:credit>
-                                                    <media:description type='plain'>{description}</media:description>
-                                                    <media:keywords/>
-                                                    <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
-                                                    <media:player url='https://www.youtube.com/watch?v=9DjIh0sVBR0&amp;feature=youtube_gdata_player'/>
-                                                    <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
-                                                    <media:thumbnail url='http://i.ytimg.com/vi/{id}/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
-                                                    <media:thumbnail url='http://i.ytimg.com/vi/{id}/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
-                                                    <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
-                                                    <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
-                                                    <media:thumbnail url='http://i.ytimg.com/vi/{id}/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
-                                                    <media:content url=""{base_url}/getvideo/{id}"" type=""video/mp4"" medium=""video"" isDefault=""true"" expression=""full"" duration=""{total_seconds}"" yt:format=""3""/>
-                                                    <media:content url=""{base_url}/getvideo/{id}"" type=""video/3gpp"" medium=""video"" expression=""full"" duration=""{total_seconds}"" yt:format=""2""/>
-                                                    <media:content url=""{base_url}/getvideo/{id}?muxed=true"" type=""video/mp4"" medium=""video"" expression=""full"" duration=""{total_seconds}"" yt:format=""5""/>
-                                                    <media:content url=""{base_url}/getvideo/{id}"" type=""video/mp4"" medium=""video"" expression=""full"" duration=""{total_seconds}"" yt:format=""8""/>
-                                                    <media:content url=""{base_url}/getvideo/{id}"" type=""video/3gpp"" medium=""video"" expression=""full"" duration=""{total_seconds}"" yt:format=""9""/>
-                                                    <media:title type='plain'>{SecurityElement.Escape(title)}</media:title>
-                                                    <yt:duration seconds='{total_seconds}'/>
-                                                    <yt:uploaded>1970-01-01T00:00:00.000Z</yt:uploaded>
-                                                    <yt:uploaderId>{channel_id}</yt:uploaderId>
-                                                    <yt:userId>{channel_id}</yt:userId>
-                                                    <yt:videoid>{id}</yt:videoid>
-                                                </media:group>
-                                                <gd:rating average='{rating}' max='0' min='0' numRaters='0' rel='https://schemas.google.com/g/2005#overall'/>
-                                                <yt:recorded>1970-08-22</yt:recorded>
-                                                <yt:statistics favoriteCount='0' viewCount=""7856961""/>
-                                                <yt:rating numDislikes='{dislikes}' numLikes='{likes}'/>
-                                                <yt:position>1</yt:position>
+                                            <entry gd:etag='W/&quot;D0EGSH47eCp7ImA9WxRQQEg.&quot;'
+                                                xmlns='http://www.w3.org/2005/Atom'
+                                                xmlns:gd='http://schemas.google.com/g/2005'
+                                                xmlns:yt='http://gdata.youtube.com/schemas/2007'
+                                                xmlns:media='http://search.yahoo.com/mrss/'>
+                                            <id>tag:youtube.com,2008:user:{uploader}:event:{id}:video:xuJkc9ENdt4</id>
+                                            <updated>2009-01-16T09:13:49.000Z</updated>
+                                            <category scheme='http://schemas.google.com/g/2005#kind'
+                                                        term='http://gdata.youtube.com/schemas/2007#userEvent'/>
+                                            <category scheme='http://gdata.youtube.com/schemas/2007/userevents.cat'
+                                                        term='video_uploaded'/>
+                                            <title>GoogleTechTalks has uploaded a video</title>
+                                            <link rel='alternate' type='text/html' href='https://www.youtube.com'/>
+                                            <link rel='http://gdata.youtube.com/schemas/2007#video'
+                                                    type='application/atom+xml'
+                                                    href='https://gdata.youtube.com/feeds/api/videos/_gZK0tW8EhQ?v=2'/>
+                                            <link rel='self' type='application/atom+xml'
+                                                    href='https://gdata.youtube.com/feeds/api/users/GoogleDevelopers/subtivity/VGF5Wm9uZGF5MzEy%3D%3D?v=2'/>
+                                            <author>
+                                                <name>GoogleTechTalks</name>
+                                                <uri>https://gdata.youtube.com/feeds/api/users/tXKDgv1AVoG88PLl8nGXmw</uri>
+                                                <yt:userId>tXKDgv1AVoG88PLl8nGXmw</yt:userId>
+                                            </author>
+                                            <media:group>
+                                                <media:category label='Howto &amp; Style' scheme='https://gdata.youtube.com/schemas/1970/categories.cat'>Howto</media:category>
+                                                <media:content url='https://www.youtube.com/v/xuJkc9ENdt4?version=3&amp;f=playlists&amp;app=youtube_gdata' type='application/x-shockwave-flash' medium='video' isDefault='true' expression='full' duration='3951' yt:format='5'/>
+                                                <media:content url='http://192.168.1.150/getvideo/xuJkc9ENdt4' type='video/3gpp' medium='video' expression='full' duration='3951' yt:format='1'/>
+                                                <media:content url='http://192.168.1.150/getvideo/xuJkc9ENdt4' type='video/3gpp' medium='video' expression='full' duration='3951' yt:format='6'/>
+                                                <media:credit role='uploader' scheme='urn:youtube' yt:display='Syd &amp; Olivia' yt:type='partner'>UCYLG0W5s5aA6q39oTqf-H4w</media:credit>
+                                                <media:description type='plain'></media:description>
+                                                <media:keywords/>
+                                                <media:license type='text/html' href='https://www.youtube.com/t/terms'>youtube</media:license>
+                                                <media:player url='https://www.youtube.com/watch?v=xuJkc9ENdt4&amp;feature=youtube_gdata_player'/>
+                                                <media:thumbnail url='http://i.ytimg.com/vi/xuJkc9ENdt4/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='default'/>
+                                                <media:thumbnail url='http://i.ytimg.com/vi/xuJkc9ENdt4/mqdefault.jpg' height='180' width='320' yt:name='mqdefault'/>
+                                                <media:thumbnail url='http://i.ytimg.com/vi/xuJkc9ENdt4/hqdefault.jpg' height='360' width='480' yt:name='hqdefault'/>
+                                                <media:thumbnail url='http://i.ytimg.com/vi/xuJkc9ENdt4/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='start'/>
+                                                <media:thumbnail url='http://i.ytimg.com/vi/xuJkc9ENdt4/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='middle'/>
+                                                <media:thumbnail url='http://i.ytimg.com/vi/xuJkc9ENdt4/default.jpg' height='90' width='120' time='00:00:00.000' yt:name='end'/>
+                                                <media:content url='http://192.168.1.150/getvideo/xuJkc9ENdt4' type='video/mp4' medium='video' isDefault='true' expression='full' duration='3951' yt:format='3'/>
+                                                <media:content url='http://192.168.1.150/getvideo/xuJkc9ENdt4' type='video/3gpp' medium='video' expression='full' duration='3951' yt:format='2'/>
+                                                <media:content url='http://192.168.1.150/getvideo/xuJkc9ENdt4?muxed=true' type='video/mp4' medium='video' expression='full' duration='3951' yt:format='5'/>
+                                                <media:content url='http://192.168.1.150/getvideo/xuJkc9ENdt4' type='video/mp4' medium='video' expression='full' duration='3951' yt:format='8'/>
+                                                <media:content url='http://192.168.1.150/getvideo/xuJkc9ENdt4' type='video/3gpp' medium='video' expression='full' duration='3951' yt:format='9'/>
+                                                <media:title type='plain'>Existential Crisis â¤ï¸ | Syd &amp; Olivia Talk Sh*t - S3 Ep44</media:title>
+                                                <yt:duration seconds='3951'/>
+                                                <yt:uploaded>1970-01-01T00:00:00.000Z</yt:uploaded>
+                                                <yt:uploaderId>UCYLG0W5s5aA6q39oTqf-H4w</yt:uploaderId>
+                                                <yt:userId>UCYLG0W5s5aA6q39oTqf-H4w</yt:userId>
+                                                <yt:videoid>xuJkc9ENdt4</yt:videoid>
+                                            </media:group>
+
+                                            <yt:videoid>_gZK0tW8EhQ</yt:videoid>
                                             </entry>";
 
+       
 
                                             combined.Add(item_xml);
                                             count++;
@@ -495,7 +477,9 @@ namespace Lincon
                 return Tuple.Create(string.Join("\n", combined), count);
             }
 
-            app.MapGet("/feeds/api/users/default/newsubscriptionvideos", async (HttpRequest request) =>
+            // for now it'll pretty just another section for subbed videos
+            // but cool to have
+            app.MapGet("/feeds/api/users/default/subtivity", async (HttpRequest request) =>
             {
                 try
                 {

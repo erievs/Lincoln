@@ -79,7 +79,7 @@ namespace Lincon
                             <link rel='alternate' type='text/html' href="http://www.youtube.com/watch?v={id}"/>
                             <link rel='self' type='application/atom+xml' href="http://gdata.youtube.com/feeds/api/videos/{id}/comments/useless?v=2"/>
                             <author>
-                                <name>{uploader}</name>
+                                <name>{System.Security.SecurityElement.Escape(uploader)}</name>
                                 <uri>{channel_id}</uri>
                                 <yt:userId>{channel_id}</yt:userId>
                             </author>

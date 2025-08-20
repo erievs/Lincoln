@@ -206,35 +206,34 @@ namespace Lincon
                             }
                         }
 
-                        var item_xml = $"""
-                        <entry>
-                            <id>tag:youtube.com,2008:playlist:snippet: {id}</id>
-                            <playlistId>{id}</playlistId>
-                            <yt:playlistId>{id}</yt:playlistId>
-                            <published>2011-12-19T22:02:40.000Z</published>
-                            <updated>2011-12-27T18:33:18.000Z</updated>
-                            <category scheme="http://schemas.google.com/g/2005#kind" term="http://gdata.youtube.com/schemas/2007#playlistLink"/>
-                            <title type="text">{SecurityElement.Escape(title)}</title>
-                            <content type="text"/>
-                            <link rel="related" type="application/atom+xml" href="http://gdata.youtube.com/feeds/api/users/youtube"/>
-                            <link rel="alternate" type="text/html" href="http://www.youtube.com/view_play_list?p={id}"/>
-                            <link rel="self" type="application/atom+xml" href="http://gdata.youtube.com/feeds/api/users/youtube/playlists/{id}"/>
+                        var item_xml = @$"
+                        <entry gd:etag='W/&quot;D0ANRn47eCp7ImA9WxVUF04.&quot;'>
+                            <id>tag:youtube.com,2008:playlist:snippet:{id}</id>
+                            <published>2008-05-26T23:39:53.000Z</published>
+                            <updated>2009-03-21T12:45:57.000Z</updated>
+                            <category scheme='http://schemas.google.com/g/2005#kind' term='http://gdata.youtube.com/schemas/2007#playlistLink'/>
+                            <title>{System.Security.SecurityElement.Escape(title)}</title>
+                            <summary/>
+                            <content type='application/atom+xml;type=feed' src='https://gdata.youtube.com/feeds/api/playlists/{id}?v=2'/>
+                            <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/users/GoogleDevelopers?v=2'/>
+                            <link rel='alternate' type='text/html' href='https://www.youtube.com/view_play_list?p={id}'/>
+                            <link rel='self' type='application/atom+xml' href='{base_url}/feeds/api/playlists/snippets/{id}?v=2'/>
+                            <link rel='edit' type='application/atom+xml' href='{base_url}/feeds/api/playlists/snippets/{id}?v=2'/>
                             <author>
-                                <name>{SecurityElement.Escape(author)}</name>
-                                <uri>http://gdata.youtube.com/feeds/api/users/youtube</uri>
+                                <name>{System.Security.SecurityElement.Escape(author)}</name>
+                                <uri>{base_url}/feeds/api/users/yap</uri>
+                                <yt:userId>yap</yt:userId>
                             </author>
-                            <yt:description/>
-                            <gd:feedLink rel="http://gdata.youtube.com/schemas/2007#playlist" href="http://gdata.youtube.com/feeds/api/playlists/{id}" countHint="{video_count}"/>
                             <yt:countHint>{video_count}</yt:countHint>
                             <media:group>
-                                <media:thumbnail url="{thumbnail_url}" height="90" width="120" yt:name="default"/>
-                                <media:thumbnail url="{thumbnail_url}" height="360" width="480" yt:name="hqdefault"/>
-                                <yt:duration seconds="60"/>
+                                <media:thumbnail url='{System.Security.SecurityElement.Escape(thumbnail_url)}' height='90' width='120' yt:name='default'/>
+                                <media:thumbnail url='{System.Security.SecurityElement.Escape(thumbnail_url)}' height='180' width='320' yt:name='mqdefault'/>
+                                <media:thumbnail url='{System.Security.SecurityElement.Escape(thumbnail_url)}' height='360' width='480' yt:name='hqdefault'/>
                             </media:group>
-                            <summary></summary>
+                            <yt:playlistId>{id}</yt:playlistId>
+                            <gd:feedLink rel='http://gdata.youtube.com/schemas/2007#playlist' href='{base_url}/feeds/api/playlists/{id}' countHint='{video_count}'/>
                         </entry>
-                        """;
-
+                        ";
 
                         combined.Add(item_xml);
                         count++;

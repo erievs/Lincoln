@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Security;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -111,7 +112,7 @@ namespace Lincon
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/users/{data.Item1}""/>
                         <link rel=""alternate"" type=""text/html"" href=""https://www.youtube.com/user/{data.Item1}""/>
                         <author>
-                            <name>{data.Item1}</name>
+                            <name>{SecurityElement.Escape(data.Item1)}</name>
                             <uri>{base_url}/feeds/api/users/{data.Item1}</uri>
                         </author>
                         <yt:age>1</yt:age> 
@@ -272,7 +273,7 @@ namespace Lincon
                         <link rel=""self"" type=""application/atom+xml"" href=""{base_url}/feeds/api/users/{login_data.Item2}""/>
                         <link rel=""alternate"" type=""text/html"" href=""https://www.youtube.com/user/{login_data.Item2}""/>
                         <author>
-                        <name>{login_data.Item1}</name>
+                        <name>{SecurityElement.Escape(login_data.Item1)}</name>
                         <uri>{base_url}/feeds/api/users/default</uri>
                         <email>default@example.com</email>
                         </author>

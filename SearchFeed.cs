@@ -6,6 +6,7 @@ using Namotion.Reflection;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Options;
 using System.Text.RegularExpressions;
+using System.Security;
 
 #pragma warning disable CS0618 
 namespace Lincon
@@ -91,7 +92,7 @@ namespace Lincon
                         <link rel='related' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/videos/{id}?v=2'/>
                         <link rel='self' type='application/atom+xml' href='https://gdata.youtube.com/feeds/api/playlists/8E2186857EE27746/PLyl9mKRbpNIpJC5B8qpcgKX8v8NI62Jho?v=2'/>
                         <author>
-                            <name>{uploader}</name>
+                            <name>{SecurityElement.Escape(uploader)}</name>
                             <uri>https://gdata.youtube.com/feeds/api/users/{channel_id}</uri>
                             <yt:userId>{channel_id}</yt:userId>
                         </author>

@@ -82,6 +82,9 @@ HandleCategories.Handle(app);
 // search
 SearchFeed.HandleFeed(app);
 
+// playlist search
+PlaylistSnippetsFeed.HandleFeed(app);
+
 // standard feeds
 StandardFeeds.HandleFeed(app);
 
@@ -114,6 +117,9 @@ RecommendationsFeed.HandleFeed(app);
 
 // default new subs videos
 NewSubscriptionVideosFeed.HandleFeed(app);
+
+// default subtivty feed
+SubtivityFeed.HandleFeed(app);
 
 // defaut watch history
 WatchHistoryFeed.HandleFeed(app);
