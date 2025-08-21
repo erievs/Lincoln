@@ -624,7 +624,7 @@ namespace Lincon
                         var newSession = new YouTubeSession
                         {
                             DeviceId = deviceId,
-                            Username = password,
+                            Username = username,
                             Password = password,
                             AccessToken = accessToken,
                             RefreshToken = refreshToken,
